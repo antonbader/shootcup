@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout, QFrame,
+    QScrollArea
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QPalette, QColor
 
 class SecondWindow(QWidget):
@@ -11,17 +12,13 @@ class SecondWindow(QWidget):
         super().__init__()
         self.setWindowTitle("ShootCup - Anzeige")
 
-        # Determine if we go fullscreen later (controlled by main window)
-        # self.showFullScreen()
-
-        # Dark Theme for contrast or clean white? Let's go with a clean high-contrast look.
-        # Maybe dark background with light text looks "modern" for displays.
+        # Style
         self.setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
 
-        # --- Header ---
+        # --- Header (Fixed at Top) ---
         header_layout = QHBoxLayout()
 
         # Left: Tournament Info
@@ -70,7 +67,6 @@ class SecondWindow(QWidget):
         """)
         self.close_btn.clicked.connect(self.close)
 
-        # Add a bit of spacing/margin for the close button
         close_container = QVBoxLayout()
         close_container.addWidget(self.close_btn)
         close_container.addStretch()
@@ -85,83 +81,178 @@ class SecondWindow(QWidget):
         line.setStyleSheet("background-color: #444; color: #444;")
         self.layout.addWidget(line)
 
-        # --- Content Area ---
-        # We will use a Grid Layout to simulate columns.
-        # We need to manually rebuild this layout when data updates.
+        # --- Content Area (Scrollable) ---
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setStyleSheet("background-color: transparent; border: none;")
+
         self.content_widget = QWidget()
-        self.content_layout = QGridLayout(self.content_widget)
-        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        self.layout.addWidget(self.content_widget)
-        self.layout.addStretch() # Push content up
+        self.content_widget.setStyleSheet("background-color: transparent;")
+        self.content_layout = QHBoxLayout(self.content_widget) # Horizontal Layout for Columns!
+        self.content_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(40) # Space between columns
+
+        self.scroll_area.setWidget(self.content_widget)
+        self.layout.addWidget(self.scroll_area)
+
+        # --- Scrolling Logic ---
+        self.scroll_timer = QTimer(self)
+        self.scroll_timer.timeout.connect(self.scroll_step)
+        self.scroll_speed = 2 # Pixels per tick
+        self.is_scrolling = False
+        self.scroll_pos = 0.0
+
+        # Data storage for seamless looping
+        self.current_entries = []
+        self.current_target_teiler = 0.0
+        self.seamless_duplicate_threshold = 0 # If content width > screen width
+
+        # For seamless scrolling, we need to know the width of the original content
+        self.original_content_width = 0
 
     def closeEvent(self, event):
         self.closed.emit()
         super().closeEvent(event)
 
+    def set_scroll_active(self, active):
+        self.is_scrolling = active
+        if active:
+            self.scroll_timer.start(50) # 20 FPS updates
+        else:
+            self.scroll_timer.stop()
+
+    def set_scroll_speed(self, speed):
+        # speed range 1-100?
+        # let's map it roughly.
+        self.scroll_speed = max(1, speed)
+
+    def scroll_step(self):
+        if not self.is_scrolling:
+            return
+
+        max_val = self.scroll_area.horizontalScrollBar().maximum()
+
+        self.scroll_pos += self.scroll_speed
+
+        # Seamless Logic:
+        # If we have scrolled past the original content width, we jump back to 0 (or close to 0)
+        # Assuming we duplicated the content.
+
+        if self.original_content_width > 0 and self.scroll_pos >= self.original_content_width:
+             self.scroll_pos -= self.original_content_width
+
+        if self.scroll_pos >= max_val:
+            self.scroll_pos = 0
+
+        self.scroll_area.horizontalScrollBar().setValue(int(self.scroll_pos))
+
     def update_data(self, name, date_str, target_teiler, entries):
-        """
-        entries: List of dicts.
-        """
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
 
-        # Clear existing items
+        self.current_entries = entries
+        self.current_target_teiler = target_teiler
+
+        self.rebuild_content()
+
+    def rebuild_content(self):
+        # Clear existing
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
 
-        if not entries:
+        sorted_entries = sorted(self.current_entries, key=lambda x: (abs(x['teiler'] - self.current_target_teiler), x['teiler']))
+
+        if not sorted_entries:
             return
 
-        # Layout Logic
-        # We target ~15 rows per column.
-        rows_per_col = 15
+        # Determine rows per column based on available height.
+        # Use available height minus some padding.
+        available_height = self.scroll_area.height()
+        if available_height < 200: available_height = 800 # Fallback if window not shown yet
 
-        current_col = 0
-        current_row = 0
+        # Estimate row height more accurately
+        row_height = 45
+        rows_per_col = max(1, (available_height - 20) // row_height)
 
-        # Sort entries by difference to target teiler (closest first)
-        # Assuming entries are passed already sorted, but let's be sure.
-        # But wait, MainWindow passes 'entries' which might be sorted by something else if table sort is changed.
-        # The requirement says: "In dem Fenster wird ... die Einträge mit Platzierung, Namen und Teiler die am nächsten am Zielteiler sind."
-        # So this window ALWAYS sorts by diff.
+        # Chunk entries
+        chunks = [sorted_entries[i:i + rows_per_col] for i in range(0, len(sorted_entries), rows_per_col)]
 
-        sorted_entries = sorted(entries, key=lambda x: (abs(x['teiler'] - target_teiler), x['teiler']))
+        # Add original columns
+        for chunk_index, chunk in enumerate(chunks):
+            # Calculate rank correctly for the chunk
+            start_rank = chunk_index * rows_per_col + 1
+            self.add_column_widget(chunk, start_rank)
 
-        for rank, entry in enumerate(sorted_entries, 1):
-            # Create a widget for the entry
+        # Force layout update to calculate width
+        self.content_widget.adjustSize()
+        self.original_content_width = self.content_widget.width() # Store width of original content
+
+        # Duplicate columns for seamless scrolling
+        # If we have enough content to warrant scrolling, duplicate ALL columns once.
+        if self.original_content_width > self.scroll_area.width() or len(chunks) > 1:
+             for chunk_index, chunk in enumerate(chunks):
+                 start_rank = chunk_index * rows_per_col + 1
+                 self.add_column_widget(chunk, start_rank)
+
+    def add_column_widget(self, entries_chunk, start_rank):
+        # Container for column + divider
+        container = QWidget()
+        container_layout = QHBoxLayout(container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+
+        # Column Content
+        col_widget = QWidget()
+        col_layout = QVBoxLayout(col_widget)
+        col_layout.setContentsMargins(0, 0, 0, 0)
+        col_layout.setSpacing(5)
+        col_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        for i, entry in enumerate(entries_chunk):
+            rank = start_rank + i
+
             entry_widget = QWidget()
             h_layout = QHBoxLayout(entry_widget)
-            h_layout.setContentsMargins(5, 2, 5, 2)
+            h_layout.setContentsMargins(10, 5, 10, 5)
 
             lbl_rank = QLabel(f"{rank}.")
             lbl_rank.setFixedWidth(40)
-            lbl_rank.setStyleSheet("color: #888; font-weight: bold;")
+            lbl_rank.setStyleSheet("color: #888; font-weight: bold; font-size: 14px;")
 
             lbl_name = QLabel(entry['name'])
-            lbl_name.setStyleSheet("font-size: 14px; font-weight: bold; color: #ffffff;")
+            lbl_name.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
 
-            diff = abs(entry['teiler'] - target_teiler)
+            diff = abs(entry['teiler'] - self.current_target_teiler)
             teiler_color = "#ffffff"
             if diff == 0:
-                teiler_color = "#00ff00" # Perfect Green
+                teiler_color = "#00ff00"
             elif diff <= 1.0:
-                teiler_color = "#aaffaa" # Light Green
+                teiler_color = "#aaffaa"
 
             lbl_teiler = QLabel(f"{entry['teiler']:.1f}".replace('.', ','))
             lbl_teiler.setAlignment(Qt.AlignmentFlag.AlignRight)
-            lbl_teiler.setStyleSheet(f"color: {teiler_color}; font-size: 16px; font-weight: bold;")
+            lbl_teiler.setStyleSheet(f"color: {teiler_color}; font-size: 18px; font-weight: bold;")
 
             h_layout.addWidget(lbl_rank)
             h_layout.addWidget(lbl_name)
             h_layout.addWidget(lbl_teiler)
 
-            self.content_layout.addWidget(entry_widget, current_row, current_col)
+            col_layout.addWidget(entry_widget)
 
-            current_row += 1
-            if current_row >= rows_per_col:
-                current_row = 0
-                current_col += 1
+        container_layout.addWidget(col_widget)
+
+        # Divider
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.VLine)
+        line.setStyleSheet("color: #555; background-color: #555;")
+        line.setFixedWidth(2)
+        container_layout.addWidget(line)
+
+        self.content_layout.addWidget(container)

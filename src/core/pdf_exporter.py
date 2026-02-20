@@ -28,12 +28,11 @@ def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler):
     elements.append(Spacer(1, 1*cm))
 
     # Table Data
-    data = [["Platz", "Nr.", "Name", "Teiler", "Abweichung"]]
+    data = [["Nr.", "Name", "Teiler", "Abweichung"]]
 
     for rank, entry in enumerate(entries, 1):
         diff = abs(entry['teiler'] - target_teiler)
         row = [
-            str(rank),
             str(entry['number']),
             entry['name'],
             f"{entry['teiler']:.1f}".replace('.', ','),
@@ -42,7 +41,7 @@ def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler):
         data.append(row)
 
     # Table Style
-    table = Table(data, colWidths=[1.5*cm, 2*cm, 8*cm, 2.5*cm, 3*cm])
+    table = Table(data, colWidths=[2*cm, 9*cm, 3*cm, 3*cm])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),

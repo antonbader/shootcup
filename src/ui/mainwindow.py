@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
     QHeaderView, QMessageBox, QFileDialog, QGroupBox, QFormLayout, QComboBox,
-    QDialog, QVBoxLayout, QDialogButtonBox, QApplication
+    QDialog, QVBoxLayout, QDialogButtonBox, QApplication, QCheckBox, QSlider
 )
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt, QDate, QRect
@@ -12,15 +12,15 @@ from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, current_index=0):
+    def __init__(self, parent=None, current_index=0, current_speed=2):
         super().__init__(parent)
         self.setWindowTitle("Einstellungen")
-        self.resize(300, 150)
+        self.resize(300, 250)
 
         layout = QVBoxLayout(self)
 
+        # Screen Selection
         layout.addWidget(QLabel("Bildschirm für Vollbild-Anzeige auswählen:"))
-
         self.screen_combo = QComboBox()
         screens = QApplication.screens()
         for i, screen in enumerate(screens):
@@ -28,8 +28,16 @@ class SettingsDialog(QDialog):
 
         if current_index < len(screens):
             self.screen_combo.setCurrentIndex(current_index)
-
         layout.addWidget(self.screen_combo)
+
+        # Scroll Speed
+        layout.addWidget(QLabel("Scroll-Geschwindigkeit:"))
+        self.speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.speed_slider.setRange(1, 10)
+        self.speed_slider.setValue(current_speed)
+        self.speed_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.speed_slider.setTickInterval(1)
+        layout.addWidget(self.speed_slider)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -39,6 +47,9 @@ class SettingsDialog(QDialog):
 
     def get_selected_screen_index(self):
         return self.screen_combo.currentIndex()
+
+    def get_scroll_speed(self):
+        return self.speed_slider.value()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -52,6 +63,7 @@ class MainWindow(QMainWindow):
         # Second Window State
         self.second_window = None
         self.selected_screen_index = 0 # Default to primary
+        self.scroll_speed = 2
 
         # UI Components
         self.init_ui()
@@ -169,6 +181,9 @@ class MainWindow(QMainWindow):
         self.export_btn = QPushButton("PDF Export")
         self.export_btn.clicked.connect(self.export_pdf) # Placeholder
 
+        self.scroll_check = QCheckBox("Automatisches Scrollen (2. Bildschirm)")
+        self.scroll_check.clicked.connect(self.toggle_scrolling)
+
         self.settings_btn = QPushButton("Einstellungen")
         self.settings_btn.clicked.connect(self.open_settings)
 
@@ -178,6 +193,7 @@ class MainWindow(QMainWindow):
         footer_layout.addWidget(self.save_btn)
         footer_layout.addWidget(self.load_btn)
         footer_layout.addStretch()
+        footer_layout.addWidget(self.scroll_check)
         footer_layout.addWidget(self.settings_btn)
         footer_layout.addWidget(self.export_btn)
         footer_layout.addWidget(self.second_screen_btn)
@@ -362,9 +378,16 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Fehler", "PDF konnte nicht erstellt werden.")
 
     def open_settings(self):
-        dlg = SettingsDialog(self, self.selected_screen_index)
+        dlg = SettingsDialog(self, self.selected_screen_index, self.scroll_speed)
         if dlg.exec():
             self.selected_screen_index = dlg.get_selected_screen_index()
+            self.scroll_speed = dlg.get_scroll_speed()
+            if self.second_window:
+                self.second_window.set_scroll_speed(self.scroll_speed)
+
+    def toggle_scrolling(self):
+        if self.second_window:
+            self.second_window.set_scroll_active(self.scroll_check.isChecked())
 
     def toggle_second_screen(self):
         if self.second_window is None:
@@ -380,6 +403,10 @@ class MainWindow(QMainWindow):
                 self.second_window.showFullScreen()
             else:
                 self.second_window.show() # Fallback
+
+            # Apply settings
+            self.second_window.set_scroll_speed(self.scroll_speed)
+            self.second_window.set_scroll_active(self.scroll_check.isChecked())
 
             self.second_screen_btn.setText("2. Bildschirm schließen")
             self.update_second_window()
