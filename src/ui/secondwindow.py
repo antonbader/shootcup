@@ -23,6 +23,9 @@ class SecondWindow(QWidget):
 
         # Left: Tournament Info
         info_layout = QVBoxLayout()
+        info_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Align to top
+        info_layout.setSpacing(0) # Reduce space between Name and Date
+
         self.name_label = QLabel("Turniername")
         self.name_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
         self.date_label = QLabel("Datum")
@@ -37,8 +40,13 @@ class SecondWindow(QWidget):
 
         # Right: Target Teiler
         target_layout = QVBoxLayout()
+        target_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Align to top
+        target_layout.setSpacing(0) # Reduce space between Title and Value
+
         target_title = QLabel("Zielteiler")
-        target_title.setFont(QFont("Arial", 14))
+        target_title.setFont(QFont("Arial", 14)) # Smaller font than Name, but visually aligned at top
+        # To make it "gleicher Höhe" visually, we might need to adjust margin or padding if the fonts differ too much in ascender.
+        # But logically, AlignTop puts them at y=0 relative to the container.
         target_title.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.target_teiler_label = QLabel("0,0")
