@@ -20,9 +20,11 @@ class SecondWindow(QWidget):
 
         # --- Header (Fixed at Top) ---
         header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
 
         # Left: Tournament Info
         info_layout = QVBoxLayout()
+        info_layout.setContentsMargins(0, 0, 0, 0)
         info_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Align to top
         info_layout.setSpacing(0) # Reduce space between Name and Date
 
@@ -40,6 +42,7 @@ class SecondWindow(QWidget):
 
         # Right: Target Teiler
         target_layout = QVBoxLayout()
+        target_layout.setContentsMargins(0, 0, 0, 0)
         target_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Align to top
         target_layout.setSpacing(0) # Reduce space between Title and Value
 
@@ -116,7 +119,7 @@ class SecondWindow(QWidget):
         self.seamless_duplicate_threshold = 0 # If content width > screen width
 
         # For seamless scrolling, we need to know the width of the original content
-        self.original_content_width = 0
+        self.loop_threshold = 0
 
     def closeEvent(self, event):
         self.closed.emit()
@@ -128,6 +131,8 @@ class SecondWindow(QWidget):
             self.scroll_timer.start(50) # 20 FPS updates
         else:
             self.scroll_timer.stop()
+            self.scroll_pos = 0
+            self.scroll_area.horizontalScrollBar().setValue(0)
 
     def set_scroll_speed(self, speed):
         # speed range 1-100?
@@ -146,8 +151,8 @@ class SecondWindow(QWidget):
         # If we have scrolled past the original content width, we jump back to 0 (or close to 0)
         # Assuming we duplicated the content.
 
-        if self.original_content_width > 0 and self.scroll_pos >= self.original_content_width:
-             self.scroll_pos -= self.original_content_width
+        if self.loop_threshold > 0 and self.scroll_pos >= self.loop_threshold:
+             self.scroll_pos -= self.loop_threshold
 
         if self.scroll_pos >= max_val:
             self.scroll_pos = 0
@@ -197,11 +202,14 @@ class SecondWindow(QWidget):
 
         # Force layout update to calculate width
         self.content_widget.adjustSize()
-        self.original_content_width = self.content_widget.width() # Store width of original content
+
+        # Calculate loop threshold including spacing
+        spacing = self.content_layout.spacing()
+        self.loop_threshold = self.content_widget.width() + spacing
 
         # Duplicate columns for seamless scrolling
         # If we have enough content to warrant scrolling, duplicate ALL columns once.
-        if self.original_content_width > self.scroll_area.width() or len(chunks) > 1:
+        if self.content_widget.width() > self.scroll_area.width() or len(chunks) > 1:
              for chunk_index, chunk in enumerate(chunks):
                  start_rank = chunk_index * rows_per_col + 1
                  self.add_column_widget(chunk, start_rank)
