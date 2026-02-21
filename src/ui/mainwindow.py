@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
         self.schuetze_input.setPlaceholderText("Name des Schützen")
 
         self.teiler_input = QDoubleSpinBox()
-        self.teiler_input.setRange(0.0, 1999.9)
+        self.teiler_input.setRange(0.0, 1000000.0)
         self.teiler_input.setDecimals(1)
         self.teiler_input.setSingleStep(0.1)
 
@@ -142,7 +142,7 @@ class MainWindow(QMainWindow):
         control_layout = QHBoxLayout()
 
         self.target_teiler_input = QDoubleSpinBox()
-        self.target_teiler_input.setRange(0.0, 1999.9)
+        self.target_teiler_input.setRange(0.0, 1000000.0)
         self.target_teiler_input.setDecimals(1)
         self.target_teiler_input.setSingleStep(0.1)
         self.target_teiler_input.setValue(0.0)

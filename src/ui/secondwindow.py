@@ -82,12 +82,9 @@ class SecondWindow(QWidget):
 
         self.layout.addLayout(header_layout)
 
-        # Divider
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: #444; color: #444;")
-        self.layout.addWidget(line)
+        # No Divider line to keep it "immediately below"
+        # Reduce spacing to 0 if needed
+        self.layout.setSpacing(0)
 
         # --- Content Area (Scrollable) ---
         self.scroll_area = QScrollArea()
