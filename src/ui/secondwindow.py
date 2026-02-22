@@ -267,17 +267,50 @@ class SecondWindow(QWidget):
 
         chunks = [sorted_entries[i:i + rows_per_col] for i in range(0, len(sorted_entries), rows_per_col)]
 
+        # --- Build FIRST set to measure it ---
         for ci, chunk in enumerate(chunks):
             self.add_column_widget(chunk, ci * rows_per_col + 1)
 
         self.content_widget.adjustSize()
         spacing = self.content_layout.spacing()
-        self.loop_threshold = self.content_widget.width() + spacing
 
-        # duplicate for seamless scroll
-        if self.content_widget.width() > self.scroll_area.width() or len(chunks) > 1:
-            for ci, chunk in enumerate(chunks):
-                self.add_column_widget(chunk, ci * rows_per_col + 1)
+        # Measure real width by summing children hints (ignoring resize behavior)
+        single_set_width = 0
+        for i in range(self.content_layout.count()):
+            item = self.content_layout.itemAt(i)
+            if item.widget():
+                single_set_width += item.widget().sizeHint().width()
+
+        # Add spacing (N-1 gaps for N items)
+        if self.content_layout.count() > 1:
+            single_set_width += (self.content_layout.count() - 1) * spacing
+
+        # If something went wrong and width is 0, fallback
+        if single_set_width <= 0:
+            single_set_width = self.content_widget.width()
+
+        self.loop_threshold = single_set_width + spacing
+
+        # --- Duplicate until we have enough content ---
+        # We need to scroll up to loop_threshold.
+        # At that point, the view resets to 0.
+        # But visually, at loop_threshold, we are looking at the START of the NEXT set.
+        # We must ensure that there is enough content visible AFTER that point to fill the screen.
+
+        viewport_width = self.scroll_area.viewport().width()
+        target_width = self.loop_threshold + viewport_width
+
+        current_width = single_set_width
+
+        # Safety: avoid infinite loop
+        if self.loop_threshold > 0:
+            while current_width < target_width:
+                for ci, chunk in enumerate(chunks):
+                    self.add_column_widget(chunk, ci * rows_per_col + 1)
+
+                current_width += self.loop_threshold
+
+        self.content_widget.adjustSize()
 
     # =========================================================
     # COLUMN BUILDER
