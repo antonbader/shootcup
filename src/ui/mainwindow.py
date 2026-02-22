@@ -608,10 +608,8 @@ class MainWindow(QMainWindow):
                 changed_lanes = []
 
             entries_to_send = self.tournament.entries
-            use_provided_order = False
 
             if self.sort_mirror_check.isChecked():
-                use_provided_order = True
                 sort_mode = self.sort_combo.currentText()
                 key_map = {
                     "Nr.": "number",
@@ -634,6 +632,5 @@ class MainWindow(QMainWindow):
                 self.lane_assignments,
                 self.show_lanes_second_screen,
                 changed_lanes=changed_lanes,
-                use_provided_order=use_provided_order,
                 show_target_teiler=self.show_target_teiler_second_screen
             )
