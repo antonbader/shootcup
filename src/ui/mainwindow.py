@@ -3,7 +3,8 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
     QHeaderView, QMessageBox, QFileDialog, QGroupBox, QFormLayout, QComboBox,
-    QDialog, QVBoxLayout, QDialogButtonBox, QApplication, QCheckBox, QSlider
+    QDialog, QVBoxLayout, QDialogButtonBox, QApplication, QCheckBox, QSlider,
+    QSpinBox, QGridLayout
 )
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt, QDate, QRect
@@ -12,10 +13,10 @@ from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, current_index=0, current_speed=2):
+    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False):
         super().__init__(parent)
         self.setWindowTitle("Einstellungen")
-        self.resize(300, 250)
+        self.resize(350, 350)
 
         layout = QVBoxLayout(self)
 
@@ -39,6 +40,17 @@ class SettingsDialog(QDialog):
         self.speed_slider.setTickInterval(1)
         layout.addWidget(self.speed_slider)
 
+        # Lanes Settings
+        layout.addWidget(QLabel("Anzahl Stände:"))
+        self.lanes_spin = QSpinBox()
+        self.lanes_spin.setRange(1, 100)
+        self.lanes_spin.setValue(num_lanes)
+        layout.addWidget(self.lanes_spin)
+
+        self.show_lanes_check = QCheckBox("Standzuordnung auf 2. Fenster anzeigen")
+        self.show_lanes_check.setChecked(show_lanes)
+        layout.addWidget(self.show_lanes_check)
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -50,6 +62,12 @@ class SettingsDialog(QDialog):
 
     def get_scroll_speed(self):
         return self.speed_slider.value()
+
+    def get_num_lanes(self):
+        return self.lanes_spin.value()
+
+    def get_show_lanes(self):
+        return self.show_lanes_check.isChecked()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -65,8 +83,14 @@ class MainWindow(QMainWindow):
         self.selected_screen_index = 0 # Default to primary
         self.scroll_speed = 2
 
+        # Lane Settings
+        self.num_lanes = 8
+        self.show_lanes_second_screen = False
+        self.lane_assignments = {} # {lane_num: start_nr_str}
+
         # UI Components
         self.init_ui()
+        self.setup_lane_inputs()
         self.update_table()
 
     def init_ui(self):
@@ -168,6 +192,16 @@ class MainWindow(QMainWindow):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.itemClicked.connect(self.load_entry_into_inputs)
         main_layout.addWidget(self.table)
+
+        # --- Lane Assignments Section ---
+        self.lanes_group = QGroupBox("Standzuordnung")
+        self.lanes_layout = QGridLayout()
+        self.lanes_group.setLayout(self.lanes_layout)
+        main_layout.addWidget(self.lanes_group)
+
+        self.update_lanes_btn = QPushButton("Update Stände")
+        self.update_lanes_btn.clicked.connect(self.update_lane_assignments)
+        main_layout.addWidget(self.update_lanes_btn)
 
         # --- Footer Buttons ---
         footer_layout = QHBoxLayout()
@@ -377,13 +411,83 @@ class MainWindow(QMainWindow):
             else:
                 QMessageBox.critical(self, "Fehler", "PDF konnte nicht erstellt werden.")
 
+    def setup_lane_inputs(self):
+        # Clear existing
+        while self.lanes_layout.count():
+            item = self.lanes_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        self.lane_inputs = [] # List of QLineEdit
+
+        # Grid logic: 5 columns
+        cols = 5
+        for i in range(self.num_lanes):
+            lane_num = i + 1
+
+            # Container for Label + Input
+            container = QWidget()
+            h_layout = QHBoxLayout(container)
+            h_layout.setContentsMargins(0,0,0,0)
+
+            lbl = QLabel(f"{lane_num}:")
+            lbl.setFixedWidth(30)
+            inp = QLineEdit()
+            inp.setPlaceholderText("Startnr.")
+            # Restore value if exists
+            current_val = self.lane_assignments.get(lane_num, "")
+            inp.setText(str(current_val))
+
+            self.lane_inputs.append(inp)
+
+            h_layout.addWidget(lbl)
+            h_layout.addWidget(inp)
+
+            row = i // cols
+            col = i % cols
+            self.lanes_layout.addWidget(container, row, col)
+
+    def update_lane_assignments(self):
+        new_assignments = {}
+        for i, inp in enumerate(self.lane_inputs):
+            lane_num = i + 1
+            text = inp.text().strip()
+            if text:
+                 new_assignments[lane_num] = text
+            else:
+                 new_assignments[lane_num] = ""
+
+        self.lane_assignments = new_assignments
+
+        if self.show_lanes_second_screen and self.second_window:
+             QApplication.beep()
+
+        self.update_second_window()
+
     def open_settings(self):
-        dlg = SettingsDialog(self, self.selected_screen_index, self.scroll_speed)
+        dlg = SettingsDialog(
+            self,
+            self.selected_screen_index,
+            self.scroll_speed,
+            self.num_lanes,
+            self.show_lanes_second_screen
+        )
         if dlg.exec():
             self.selected_screen_index = dlg.get_selected_screen_index()
             self.scroll_speed = dlg.get_scroll_speed()
+
+            new_num_lanes = dlg.get_num_lanes()
+            lanes_changed = (new_num_lanes != self.num_lanes)
+            self.num_lanes = new_num_lanes
+            self.show_lanes_second_screen = dlg.get_show_lanes()
+
+            if lanes_changed:
+                self.setup_lane_inputs()
+
             if self.second_window:
                 self.second_window.set_scroll_speed(self.scroll_speed)
+                self.update_second_window()
 
     def toggle_scrolling(self):
         if self.second_window:
@@ -428,5 +532,7 @@ class MainWindow(QMainWindow):
                 self.tournament.name,
                 self.tournament.date_str,
                 self.tournament.target_teiler,
-                self.tournament.entries
+                self.tournament.entries,
+                self.lane_assignments,
+                self.show_lanes_second_screen
             )

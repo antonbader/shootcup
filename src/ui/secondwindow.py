@@ -89,6 +89,14 @@ class SecondWindow(QWidget):
         # Reduce spacing to 0 if needed
         self.layout.setSpacing(0)
 
+        # --- Lane Assignments ---
+        self.lanes_container = QWidget()
+        self.lanes_layout = QGridLayout(self.lanes_container)
+        self.lanes_layout.setContentsMargins(10, 10, 10, 10)
+        self.lanes_layout.setSpacing(10)
+        self.layout.addWidget(self.lanes_container)
+        self.lanes_container.hide()
+
         # --- Content Area (Scrollable) ---
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -159,15 +167,52 @@ class SecondWindow(QWidget):
 
         self.scroll_area.horizontalScrollBar().setValue(int(self.scroll_pos))
 
-    def update_data(self, name, date_str, target_teiler, entries):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
 
         self.current_entries = entries
         self.current_target_teiler = target_teiler
+        self.current_assignments = lane_assignments if lane_assignments else {}
+        self.show_assignments = show_lanes
 
+        self.rebuild_lanes_display()
         self.rebuild_content()
+
+    def rebuild_lanes_display(self):
+        # Clear
+        while self.lanes_layout.count():
+            item = self.lanes_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        if not self.show_assignments:
+            self.lanes_container.hide()
+            return
+
+        self.lanes_container.show()
+
+        # Populate
+        # Sort by lane number (keys are integers)
+        sorted_keys = sorted(self.current_assignments.keys())
+
+        cols = 6
+        count = 0
+
+        for lane_num in sorted_keys:
+            val = self.current_assignments[lane_num]
+            display_val = val if val else "frei"
+
+            lbl = QLabel(f"Stand {lane_num}: {display_val}")
+            lbl.setStyleSheet("font-size: 18px; font-weight: bold; color: #ffeb3b; padding: 5px; border: 1px solid #444; border-radius: 4px;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            row = count // cols
+            col = count % cols
+            self.lanes_layout.addWidget(lbl, row, col)
+            count += 1
 
     def rebuild_content(self):
         # Clear existing
