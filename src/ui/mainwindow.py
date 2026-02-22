@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
 
         self.number_input = QLineEdit()
         self.number_input.setPlaceholderText("Nr.")
-        self.number_input.setValidator(QIntValidator(1, 9999))
+        self.number_input.setValidator(QIntValidator(1, 999999999))
 
         self.schuetze_input = QLineEdit()
         self.schuetze_input.setPlaceholderText("Name des Schützen")
@@ -259,11 +259,10 @@ class MainWindow(QMainWindow):
 
     def add_entry(self):
         try:
-            txt_num = self.number_input.text()
-            if not txt_num:
-                 QMessageBox.warning(self, "Fehler", "Bitte eine Nummer eingeben.")
+            if not self.number_input.hasAcceptableInput():
+                 QMessageBox.warning(self, "Fehler", "Bitte eine gültige Nummer eingeben.")
                  return
-            number = int(txt_num)
+            number = int(self.number_input.text())
             name = self.schuetze_input.text()
             teiler = self.teiler_input.value()
 
@@ -289,6 +288,9 @@ class MainWindow(QMainWindow):
             return
 
         try:
+            if not self.number_input.hasAcceptableInput():
+                QMessageBox.warning(self, "Fehler", "Bitte eine gültige Nummer eingeben.")
+                return
             new_number = int(self.number_input.text())
             name = self.schuetze_input.text()
             teiler = self.teiler_input.value()
