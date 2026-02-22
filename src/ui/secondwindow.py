@@ -1,9 +1,11 @@
+import sys
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout, QFrame,
-    QScrollArea
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QGridLayout, QFrame, QScrollArea, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtGui import QFont
+
 
 class SecondWindow(QWidget):
     closed = pyqtSignal()
@@ -11,25 +13,32 @@ class SecondWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ShootCup - Anzeige")
+        self.resize(1200, 800)
 
-        # Style
+        # ================= STYLE =================
         self.setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
 
+        # ================= MAIN LAYOUT =================
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(20, 20, 20, 20)
+        self.layout.setContentsMargins(10, 5, 10, 10)
+        self.layout.setSpacing(0)
 
-        # --- Header (Fixed at Top) ---
+        # =========================================================
+        # ================= HEADER =================
+        # =========================================================
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(0)
+        header_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Left: Tournament Info
+        # ---- Left: Tournament Info ----
         info_layout = QVBoxLayout()
         info_layout.setContentsMargins(0, 0, 0, 0)
-        info_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Align to top
-        info_layout.setSpacing(0) # Reduce space between Name and Date
+        info_layout.setSpacing(0)
 
         self.name_label = QLabel("Turniername")
         self.name_label.setFont(QFont("Arial", 24, QFont.Weight.Bold))
+
         self.date_label = QLabel("Datum")
         self.date_label.setFont(QFont("Arial", 16))
         self.date_label.setStyleSheet("color: #aaaaaa;")
@@ -40,30 +49,28 @@ class SecondWindow(QWidget):
 
         header_layout.addStretch()
 
-        # Right: Target Teiler
+        # ---- Right: Target Teiler ----
         target_layout = QVBoxLayout()
         target_layout.setContentsMargins(0, 0, 0, 0)
-        target_layout.setAlignment(Qt.AlignmentFlag.AlignTop) # Align to top
-        target_layout.setSpacing(0) # Reduce space between Title and Value
+        target_layout.setSpacing(0)
 
         target_title = QLabel("Zielteiler")
-        target_title.setFont(QFont("Arial", 14)) # Smaller font than Name, but visually aligned at top
-        # To make it "gleicher Höhe" visually, we might need to adjust margin or padding if the fonts differ too much in ascender.
-        # But logically, AlignTop puts them at y=0 relative to the container.
+        target_title.setFont(QFont("Arial", 14))
         target_title.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.target_teiler_label = QLabel("0,0")
         self.target_teiler_label.setFont(QFont("Arial", 48, QFont.Weight.Bold))
-        self.target_teiler_label.setStyleSheet("color: #4CAF50;") # Green
+        self.target_teiler_label.setStyleSheet("color: #4CAF50;")
         self.target_teiler_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         target_layout.addWidget(target_title)
         target_layout.addWidget(self.target_teiler_label)
         header_layout.addLayout(target_layout)
 
-        # Close Button (X)
+        # ---- Close Button (NO STRETCH BUG!) ----
         self.close_btn = QPushButton("✕")
         self.close_btn.setFixedSize(40, 40)
+        self.close_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.close_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -79,17 +86,25 @@ class SecondWindow(QWidget):
         self.close_btn.clicked.connect(self.close)
 
         close_container = QVBoxLayout()
-        close_container.addWidget(self.close_btn)
-        close_container.addStretch()
+        close_container.setContentsMargins(0, 0, 0, 0)
+        close_container.addWidget(self.close_btn, alignment=Qt.AlignmentFlag.AlignTop)
         header_layout.addLayout(close_container)
 
         self.layout.addLayout(header_layout)
 
-        # No Divider line to keep it "immediately below"
-        # Reduce spacing to 0 if needed
-        self.layout.setSpacing(0)
+        # =========================================================
+        # ================= LANES =================
+        # =========================================================
+        self.lanes_container = QWidget()
+        self.lanes_layout = QGridLayout(self.lanes_container)
+        self.lanes_layout.setContentsMargins(0, 5, 0, 5)
+        self.lanes_layout.setSpacing(10)
+        self.layout.addWidget(self.lanes_container)
+        self.lanes_container.hide()
 
-        # --- Content Area (Scrollable) ---
+        # =========================================================
+        # ================= SCROLL AREA =================
+        # =========================================================
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -98,45 +113,56 @@ class SecondWindow(QWidget):
 
         self.content_widget = QWidget()
         self.content_widget.setStyleSheet("background-color: transparent;")
-        self.content_layout = QHBoxLayout(self.content_widget) # Horizontal Layout for Columns!
+
+        self.content_layout = QHBoxLayout(self.content_widget)
         self.content_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(40) # Space between columns
+        self.content_layout.setSpacing(40)
 
         self.scroll_area.setWidget(self.content_widget)
         self.layout.addWidget(self.scroll_area)
 
-        # --- Scrolling Logic ---
+        # Scroll stretch rules
+        self.layout.setStretch(0, 0)  # header
+        self.layout.setStretch(1, 0)  # lanes
+        self.layout.setStretch(2, 1)  # scroll area takes rest
+
+        # =========================================================
+        # ================= SCROLL LOGIC =================
+        # =========================================================
         self.scroll_timer = QTimer(self)
         self.scroll_timer.timeout.connect(self.scroll_step)
-        self.scroll_speed = 2 # Pixels per tick
+        self.scroll_speed = 2
         self.is_scrolling = False
         self.scroll_pos = 0.0
 
-        # Data storage for seamless looping
+        # Data storage
         self.current_entries = []
         self.current_target_teiler = 0.0
-        self.seamless_duplicate_threshold = 0 # If content width > screen width
-
-        # For seamless scrolling, we need to know the width of the original content
+        self.current_assignments = {}
+        self.show_assignments = False
         self.loop_threshold = 0
 
+    # =========================================================
+    # WINDOW EVENTS
+    # =========================================================
     def closeEvent(self, event):
         self.closed.emit()
         super().closeEvent(event)
 
-    def set_scroll_active(self, active):
+    # =========================================================
+    # SCROLL
+    # =========================================================
+    def set_scroll_active(self, active: bool):
         self.is_scrolling = active
         if active:
-            self.scroll_timer.start(50) # 20 FPS updates
+            self.scroll_timer.start(50)
         else:
             self.scroll_timer.stop()
             self.scroll_pos = 0
             self.scroll_area.horizontalScrollBar().setValue(0)
 
-    def set_scroll_speed(self, speed):
-        # speed range 1-100?
-        # let's map it roughly.
+    def set_scroll_speed(self, speed: int):
         self.scroll_speed = max(1, speed)
 
     def scroll_step(self):
@@ -144,88 +170,112 @@ class SecondWindow(QWidget):
             return
 
         max_val = self.scroll_area.horizontalScrollBar().maximum()
-
         self.scroll_pos += self.scroll_speed
 
-        # Seamless Logic:
-        # If we have scrolled past the original content width, we jump back to 0 (or close to 0)
-        # Assuming we duplicated the content.
-
         if self.loop_threshold > 0 and self.scroll_pos >= self.loop_threshold:
-             self.scroll_pos -= self.loop_threshold
+            self.scroll_pos -= self.loop_threshold
 
         if self.scroll_pos >= max_val:
             self.scroll_pos = 0
 
         self.scroll_area.horizontalScrollBar().setValue(int(self.scroll_pos))
 
-    def update_data(self, name, date_str, target_teiler, entries):
+    # =========================================================
+    # UPDATE DATA
+    # =========================================================
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
 
         self.current_entries = entries
         self.current_target_teiler = target_teiler
+        self.current_assignments = lane_assignments if lane_assignments else {}
+        self.show_assignments = show_lanes
 
-        self.rebuild_content()
+        self.rebuild_lanes_display()
+        QTimer.singleShot(50, self.rebuild_content)  # wait for layout size
 
+    # =========================================================
+    # LANES DISPLAY
+    # =========================================================
+    def rebuild_lanes_display(self):
+        while self.lanes_layout.count():
+            item = self.lanes_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not self.show_assignments:
+            self.lanes_container.hide()
+            return
+
+        self.lanes_container.show()
+
+        cols = 6
+        for idx, lane in enumerate(sorted(self.current_assignments.keys())):
+            val = self.current_assignments[lane] or "frei"
+            lbl = QLabel(f"Stand {lane}: {val}")
+            lbl.setStyleSheet(
+                "font-size: 18px; font-weight: bold; color: #ffeb3b; "
+                "padding: 5px; border: 1px solid #444; border-radius: 4px;"
+            )
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            row = idx // cols
+            col = idx % cols
+            self.lanes_layout.addWidget(lbl, row, col)
+
+    # =========================================================
+    # CONTENT
+    # =========================================================
     def rebuild_content(self):
-        # Clear existing
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+            if item.widget():
+                item.widget().deleteLater()
 
-        sorted_entries = sorted(self.current_entries, key=lambda x: (abs(x['teiler'] - self.current_target_teiler), x['teiler']))
-
+        sorted_entries = sorted(
+            self.current_entries,
+            key=lambda x: (abs(x["teiler"] - self.current_target_teiler), x["teiler"])
+        )
         if not sorted_entries:
             return
 
-        # Determine rows per column based on available height.
-        # Use available height minus some padding.
-        available_height = self.scroll_area.height()
-        if available_height < 200: available_height = 800 # Fallback if window not shown yet
+        # REAL height
+        available_height = self.scroll_area.viewport().height()
+        if available_height < 200:
+            available_height = 800
 
-        # Estimate row height more accurately
-        row_height = 45
-        rows_per_col = max(1, (available_height - 20) // row_height)
+        row_height = 30
+        rows_per_col = max(1, available_height // row_height)
 
-        # Chunk entries
         chunks = [sorted_entries[i:i + rows_per_col] for i in range(0, len(sorted_entries), rows_per_col)]
 
-        # Add original columns
-        for chunk_index, chunk in enumerate(chunks):
-            # Calculate rank correctly for the chunk
-            start_rank = chunk_index * rows_per_col + 1
-            self.add_column_widget(chunk, start_rank)
+        for ci, chunk in enumerate(chunks):
+            self.add_column_widget(chunk, ci * rows_per_col + 1)
 
-        # Force layout update to calculate width
         self.content_widget.adjustSize()
-
-        # Calculate loop threshold including spacing
         spacing = self.content_layout.spacing()
         self.loop_threshold = self.content_widget.width() + spacing
 
-        # Duplicate columns for seamless scrolling
-        # If we have enough content to warrant scrolling, duplicate ALL columns once.
+        # duplicate for seamless scroll
         if self.content_widget.width() > self.scroll_area.width() or len(chunks) > 1:
-             for chunk_index, chunk in enumerate(chunks):
-                 start_rank = chunk_index * rows_per_col + 1
-                 self.add_column_widget(chunk, start_rank)
+            for ci, chunk in enumerate(chunks):
+                self.add_column_widget(chunk, ci * rows_per_col + 1)
 
+    # =========================================================
+    # COLUMN BUILDER
+    # =========================================================
     def add_column_widget(self, entries_chunk, start_rank):
-        # Container for column + divider
         container = QWidget()
         container_layout = QHBoxLayout(container)
         container_layout.setContentsMargins(0, 0, 0, 0)
         container_layout.setSpacing(0)
 
-        # Column Content
         col_widget = QWidget()
         col_layout = QVBoxLayout(col_widget)
         col_layout.setContentsMargins(0, 0, 0, 0)
-        col_layout.setSpacing(5)
+        col_layout.setSpacing(2)
         col_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         for i, entry in enumerate(entries_chunk):
@@ -233,16 +283,16 @@ class SecondWindow(QWidget):
 
             entry_widget = QWidget()
             h_layout = QHBoxLayout(entry_widget)
-            h_layout.setContentsMargins(10, 5, 10, 5)
+            h_layout.setContentsMargins(10, 1, 10, 1)
 
             lbl_rank = QLabel(f"{rank}.")
             lbl_rank.setFixedWidth(40)
-            lbl_rank.setStyleSheet("color: #888; font-weight: bold; font-size: 14px;")
+            lbl_rank.setStyleSheet("color: #888; font-size: 14px;")
 
-            lbl_name = QLabel(entry['name'])
-            lbl_name.setStyleSheet("font-size: 16px; font-weight: bold; color: #ffffff;")
+            lbl_name = QLabel(entry["name"])
+            lbl_name.setStyleSheet("font-size: 16px; font-weight: bold;")
 
-            diff = abs(entry['teiler'] - self.current_target_teiler)
+            diff = abs(entry["teiler"] - self.current_target_teiler)
             teiler_color = "#ffffff"
             if diff == 0:
                 teiler_color = "#00ff00"
@@ -251,7 +301,7 @@ class SecondWindow(QWidget):
 
             lbl_teiler = QLabel(f"{entry['teiler']:.1f}".replace('.', ','))
             lbl_teiler.setAlignment(Qt.AlignmentFlag.AlignRight)
-            lbl_teiler.setStyleSheet(f"color: {teiler_color}; font-size: 18px; font-weight: bold;")
+            lbl_teiler.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {teiler_color};")
 
             h_layout.addWidget(lbl_rank)
             h_layout.addWidget(lbl_name)
@@ -261,11 +311,41 @@ class SecondWindow(QWidget):
 
         container_layout.addWidget(col_widget)
 
-        # Divider
+        # divider
         line = QFrame()
         line.setFrameShape(QFrame.Shape.VLine)
-        line.setStyleSheet("color: #555; background-color: #555;")
+        line.setStyleSheet("background-color: #555;")
         line.setFixedWidth(2)
         container_layout.addWidget(line)
 
         self.content_layout.addWidget(container)
+
+
+# =========================================================
+# TEST MAIN
+# =========================================================
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    w = SecondWindow()
+    w.show()
+
+    # Dummy Testdaten
+    entries = [
+        {"name": "Müller", "teiler": 38.5},
+        {"name": "Schmidt", "teiler": 47.5},
+        {"name": "Huber", "teiler": 39.2},
+        {"name": "Meier", "teiler": 40.1},
+        {"name": "Bauer", "teiler": 41.0},
+        {"name": "Klein", "teiler": 42.7},
+        {"name": "Fischer", "teiler": 44.3},
+        {"name": "Weber", "teiler": 45.8},
+        {"name": "Wolf", "teiler": 50.0},
+        {"name": "Lang", "teiler": 55.2},
+    ]
+
+    lanes = {1: "22", 2: None, 3: None, 4: None, 5: None, 6: None, 7: None, 8: None}
+
+    w.update_data("Neues Turnier", "22.02.2026", 0.0, entries, lanes, show_lanes=True)
+    w.set_scroll_active(True)
+
+    sys.exit(app.exec())
