@@ -191,6 +191,9 @@ class MainWindow(QMainWindow):
         self.sort_combo.addItems(["Nr.", "Name", "Teiler", "Differenz zum Ziel"])
         self.sort_combo.currentIndexChanged.connect(self.update_table)
 
+        self.sort_mirror_check = QCheckBox("Sortierung anzeigen")
+        self.sort_mirror_check.toggled.connect(lambda: self.update_second_window())
+
         self.filter_btn = QPushButton("Nach markierten Namen filtern")
         self.filter_btn.clicked.connect(self.toggle_filter)
 
@@ -198,6 +201,7 @@ class MainWindow(QMainWindow):
         control_layout.addWidget(self.target_teiler_input)
         control_layout.addWidget(self.filter_btn)
         control_layout.addStretch()
+        control_layout.addWidget(self.sort_mirror_check)
         control_layout.addWidget(QLabel("Sortierung:"))
         control_layout.addWidget(self.sort_combo)
         main_layout.addLayout(control_layout)
@@ -412,6 +416,9 @@ class MainWindow(QMainWindow):
             diff = abs(entry['teiler'] - self.tournament.target_teiler)
             self.table.setItem(row, 3, QTableWidgetItem(f"{diff:.1f}".replace('.', ',')))
 
+        if self.second_window and self.sort_mirror_check.isChecked():
+            self.update_second_window()
+
     def save_json(self):
         filepath, _ = QFileDialog.getSaveFileName(self, "Turnier speichern", "", "JSON Files (*.json)")
         if filepath:
@@ -506,20 +513,24 @@ class MainWindow(QMainWindow):
 
     def apply_lane_assignments(self, play_sound=True):
         new_assignments = {}
+        changed_lanes = []
         for i, inp in enumerate(self.lane_inputs):
             lane_num = i + 1
             text = inp.text().strip()
-            if text:
-                 new_assignments[lane_num] = text
-            else:
-                 new_assignments[lane_num] = ""
+
+            val = text if text else ""
+            new_assignments[lane_num] = val
+
+            old_val = self.lane_assignments.get(lane_num, "")
+            if val and val != old_val:
+                changed_lanes.append(lane_num)
 
         self.lane_assignments = new_assignments
 
         if play_sound and self.show_lanes_second_screen and self.second_window:
              self.player.play()
 
-        self.update_second_window()
+        self.update_second_window(changed_lanes=changed_lanes)
 
     def update_lane_assignments(self):
         self.apply_lane_assignments(play_sound=True)
@@ -581,18 +592,37 @@ class MainWindow(QMainWindow):
         self.second_window = None
         self.second_screen_btn.setText("2. Bildschirm öffnen")
 
-    def update_second_window(self):
+    def update_second_window(self, changed_lanes=None):
         if self.second_window:
-            # Always pass entries sorted by DIFF regardless of table sort
-            # Actually, SecondWindow sorts them by diff itself in update_data.
-            # So we can just pass raw entries or whatever list.
-            # But wait, logic in SecondWindow is: `sorted_entries = sorted(entries, key=lambda x: (abs(x['teiler'] - target_teiler), x['teiler']))`
-            # So we just pass current entries.
+            if changed_lanes is None:
+                changed_lanes = []
+
+            entries_to_send = self.tournament.entries
+            use_provided_order = False
+
+            if self.sort_mirror_check.isChecked():
+                use_provided_order = True
+                sort_mode = self.sort_combo.currentText()
+                key_map = {
+                    "Nr.": "number",
+                    "Name": "name",
+                    "Teiler": "teiler",
+                    "Differenz zum Ziel": "diff"
+                }
+                key = key_map.get(sort_mode, "number")
+                entries = self.tournament.get_entries_sorted(key)
+
+                if self.active_filter_names is not None:
+                    entries = [e for e in entries if e['name'] in self.active_filter_names]
+                entries_to_send = entries
+
             self.second_window.update_data(
                 self.tournament.name,
                 self.tournament.date_str,
                 self.tournament.target_teiler,
-                self.tournament.entries,
+                entries_to_send,
                 self.lane_assignments,
-                self.show_lanes_second_screen
+                self.show_lanes_second_screen,
+                changed_lanes=changed_lanes,
+                use_provided_order=use_provided_order
             )

@@ -141,6 +141,8 @@ class SecondWindow(QWidget):
         self.current_target_teiler = 0.0
         self.current_assignments = {}
         self.show_assignments = False
+        self.changed_lanes = []
+        self.use_provided_order = False
         self.loop_threshold = 0
 
     # =========================================================
@@ -183,7 +185,7 @@ class SecondWindow(QWidget):
     # =========================================================
     # UPDATE DATA
     # =========================================================
-    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, use_provided_order=False):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
@@ -192,6 +194,8 @@ class SecondWindow(QWidget):
         self.current_target_teiler = target_teiler
         self.current_assignments = lane_assignments if lane_assignments else {}
         self.show_assignments = show_lanes
+        self.changed_lanes = changed_lanes if changed_lanes else []
+        self.use_provided_order = use_provided_order
 
         self.rebuild_lanes_display()
         QTimer.singleShot(50, self.rebuild_content)  # wait for layout size
@@ -215,10 +219,22 @@ class SecondWindow(QWidget):
         for idx, lane in enumerate(sorted(self.current_assignments.keys())):
             val = self.current_assignments[lane] or "frei"
             lbl = QLabel(f"Stand {lane}: {val}")
-            lbl.setStyleSheet(
-                "font-size: 18px; font-weight: bold; color: #ffeb3b; "
-                "padding: 5px; border: 1px solid #444; border-radius: 4px;"
-            )
+
+            # Determine style based on whether this lane changed
+            if lane in self.changed_lanes:
+                # Changed: Green and Bold
+                style = (
+                    "font-size: 18px; font-weight: bold; color: #00ff00; "
+                    "padding: 5px; border: 2px solid #00ff00; border-radius: 4px;"
+                )
+            else:
+                # Default: Yellow
+                style = (
+                    "font-size: 18px; font-weight: bold; color: #ffeb3b; "
+                    "padding: 5px; border: 1px solid #444; border-radius: 4px;"
+                )
+
+            lbl.setStyleSheet(style)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             row = idx // cols
@@ -234,10 +250,14 @@ class SecondWindow(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        sorted_entries = sorted(
-            self.current_entries,
-            key=lambda x: (abs(x["teiler"] - self.current_target_teiler), x["teiler"])
-        )
+        if self.use_provided_order:
+            sorted_entries = self.current_entries
+        else:
+            sorted_entries = sorted(
+                self.current_entries,
+                key=lambda x: (abs(x["teiler"] - self.current_target_teiler), x["teiler"])
+            )
+
         if not sorted_entries:
             return
 
