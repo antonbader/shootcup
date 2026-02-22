@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
     QHeaderView, QMessageBox, QFileDialog, QGroupBox, QFormLayout, QComboBox,
     QDialog, QVBoxLayout, QDialogButtonBox, QApplication, QCheckBox, QSlider,
-    QSpinBox, QGridLayout
+    QSpinBox, QGridLayout, QAbstractItemView
 )
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt, QDate, QRect, QUrl
@@ -89,6 +89,9 @@ class MainWindow(QMainWindow):
         self.num_lanes = 8
         self.show_lanes_second_screen = False
         self.lane_assignments = {} # {lane_num: start_nr_str}
+
+        # Filter State
+        self.active_filter_names = None
 
         # Sound Player
         self.player = QMediaPlayer()
@@ -188,8 +191,12 @@ class MainWindow(QMainWindow):
         self.sort_combo.addItems(["Nr.", "Name", "Teiler", "Differenz zum Ziel"])
         self.sort_combo.currentIndexChanged.connect(self.update_table)
 
+        self.filter_btn = QPushButton("Nach markierten Namen filtern")
+        self.filter_btn.clicked.connect(self.toggle_filter)
+
         control_layout.addWidget(QLabel("Zielteiler:"))
         control_layout.addWidget(self.target_teiler_input)
+        control_layout.addWidget(self.filter_btn)
         control_layout.addStretch()
         control_layout.addWidget(QLabel("Sortierung:"))
         control_layout.addWidget(self.sort_combo)
@@ -201,6 +208,7 @@ class MainWindow(QMainWindow):
         self.table.setHorizontalHeaderLabels(["Nr.", "Name", "Teiler", "Abweichung"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.itemClicked.connect(self.load_entry_into_inputs)
         main_layout.addWidget(self.table)
@@ -251,6 +259,37 @@ class MainWindow(QMainWindow):
         self.tournament.set_name(self.name_input.text())
         self.tournament.set_date(self.date_input.text())
         self.update_second_window()
+
+    def toggle_filter(self):
+        if self.active_filter_names is not None:
+            # Clear filter
+            self.active_filter_names = None
+            self.filter_btn.setText("Nach markierten Namen filtern")
+            self.update_table()
+        else:
+            # Apply filter
+            selected_items = self.table.selectedItems()
+            if not selected_items:
+                QMessageBox.warning(self, "Hinweis", "Bitte wählen Sie mindestens einen Namen aus, nach dem gefiltert werden soll.")
+                return
+
+            names = set()
+            rows = set()
+            for item in selected_items:
+                rows.add(item.row())
+
+            for row in rows:
+                item = self.table.item(row, 1) # Name column
+                if item:
+                    names.add(item.text())
+
+            if not names:
+                QMessageBox.warning(self, "Hinweis", "Keine Namen in der Auswahl gefunden.")
+                return
+
+            self.active_filter_names = names
+            self.filter_btn.setText("Filter zurücksetzen")
+            self.update_table()
 
     def target_teiler_changed(self):
         self.tournament.set_target_teiler(self.target_teiler_input.value())
@@ -360,6 +399,9 @@ class MainWindow(QMainWindow):
         key = key_map.get(sort_mode, "number")
 
         entries = self.tournament.get_entries_sorted(key)
+
+        if self.active_filter_names is not None:
+            entries = [e for e in entries if e['name'] in self.active_filter_names]
 
         self.table.setRowCount(len(entries))
         for row, entry in enumerate(entries):
