@@ -15,7 +15,7 @@ from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False):
+    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False):
         super().__init__(parent)
         self.setWindowTitle("Einstellungen")
         self.resize(350, 350)
@@ -53,6 +53,10 @@ class SettingsDialog(QDialog):
         self.show_lanes_check.setChecked(show_lanes)
         layout.addWidget(self.show_lanes_check)
 
+        self.show_target_teiler_check = QCheckBox("Zielteiler auf 2. Fenster anzeigen")
+        self.show_target_teiler_check.setChecked(show_target_teiler)
+        layout.addWidget(self.show_target_teiler_check)
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -71,6 +75,9 @@ class SettingsDialog(QDialog):
     def get_show_lanes(self):
         return self.show_lanes_check.isChecked()
 
+    def get_show_target_teiler(self):
+        return self.show_target_teiler_check.isChecked()
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -88,6 +95,7 @@ class MainWindow(QMainWindow):
         # Lane Settings
         self.num_lanes = 8
         self.show_lanes_second_screen = False
+        self.show_target_teiler_second_screen = False
         self.lane_assignments = {} # {lane_num: start_nr_str}
 
         # Filter State
@@ -541,7 +549,8 @@ class MainWindow(QMainWindow):
             self.selected_screen_index,
             self.scroll_speed,
             self.num_lanes,
-            self.show_lanes_second_screen
+            self.show_lanes_second_screen,
+            self.show_target_teiler_second_screen
         )
         if dlg.exec():
             self.selected_screen_index = dlg.get_selected_screen_index()
@@ -551,6 +560,7 @@ class MainWindow(QMainWindow):
             lanes_changed = (new_num_lanes != self.num_lanes)
             self.num_lanes = new_num_lanes
             self.show_lanes_second_screen = dlg.get_show_lanes()
+            self.show_target_teiler_second_screen = dlg.get_show_target_teiler()
 
             if lanes_changed:
                 self.setup_lane_inputs()
@@ -624,5 +634,6 @@ class MainWindow(QMainWindow):
                 self.lane_assignments,
                 self.show_lanes_second_screen,
                 changed_lanes=changed_lanes,
-                use_provided_order=use_provided_order
+                use_provided_order=use_provided_order,
+                show_target_teiler=self.show_target_teiler_second_screen
             )
