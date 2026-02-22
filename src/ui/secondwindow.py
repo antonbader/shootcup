@@ -50,7 +50,8 @@ class SecondWindow(QWidget):
         header_layout.addStretch()
 
         # ---- Right: Target Teiler ----
-        target_layout = QVBoxLayout()
+        self.target_teiler_container = QWidget()
+        target_layout = QVBoxLayout(self.target_teiler_container)
         target_layout.setContentsMargins(0, 0, 0, 0)
         target_layout.setSpacing(0)
 
@@ -65,7 +66,7 @@ class SecondWindow(QWidget):
 
         target_layout.addWidget(target_title)
         target_layout.addWidget(self.target_teiler_label)
-        header_layout.addLayout(target_layout)
+        header_layout.addWidget(self.target_teiler_container)
 
         # ---- Close Button (NO STRETCH BUG!) ----
         self.close_btn = QPushButton("✕")
@@ -185,10 +186,11 @@ class SecondWindow(QWidget):
     # =========================================================
     # UPDATE DATA
     # =========================================================
-    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, use_provided_order=False):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, use_provided_order=False, show_target_teiler=False):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
+        self.target_teiler_container.setVisible(show_target_teiler)
 
         self.current_entries = entries
         self.current_target_teiler = target_teiler
