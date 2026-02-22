@@ -1,4 +1,5 @@
 import sys
+import os
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
@@ -7,7 +8,8 @@ from PyQt6.QtWidgets import (
     QSpinBox, QGridLayout
 )
 from PyQt6.QtGui import QIntValidator
-from PyQt6.QtCore import Qt, QDate, QRect
+from PyQt6.QtCore import Qt, QDate, QRect, QUrl
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from src.core.tournament import Tournament
 from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
@@ -87,6 +89,16 @@ class MainWindow(QMainWindow):
         self.num_lanes = 8
         self.show_lanes_second_screen = False
         self.lane_assignments = {} # {lane_num: start_nr_str}
+
+        # Sound Player
+        self.player = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.player.setAudioOutput(self.audio_output)
+
+        # Path to notice.mp3
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # src
+        sound_path = os.path.join(base_dir, "sound", "notice.mp3")
+        self.player.setSource(QUrl.fromLocalFile(sound_path))
 
         # UI Components
         self.init_ui()
@@ -448,7 +460,7 @@ class MainWindow(QMainWindow):
             col = i % cols
             self.lanes_layout.addWidget(container, row, col)
 
-    def update_lane_assignments(self):
+    def apply_lane_assignments(self, play_sound=True):
         new_assignments = {}
         for i, inp in enumerate(self.lane_inputs):
             lane_num = i + 1
@@ -460,10 +472,13 @@ class MainWindow(QMainWindow):
 
         self.lane_assignments = new_assignments
 
-        if self.show_lanes_second_screen and self.second_window:
-             QApplication.beep()
+        if play_sound and self.show_lanes_second_screen and self.second_window:
+             self.player.play()
 
         self.update_second_window()
+
+    def update_lane_assignments(self):
+        self.apply_lane_assignments(play_sound=True)
 
     def open_settings(self):
         dlg = SettingsDialog(
@@ -484,6 +499,7 @@ class MainWindow(QMainWindow):
 
             if lanes_changed:
                 self.setup_lane_inputs()
+                self.apply_lane_assignments(play_sound=False)
 
             if self.second_window:
                 self.second_window.set_scroll_speed(self.scroll_speed)
