@@ -4,10 +4,11 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 
-def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler):
+def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler, info_text=None):
     """
     Exports the given entries to a PDF file.
     entries: List of dicts, expected to be already sorted.
+    info_text: Optional string to display below title (e.g. sorting/filter info).
     """
     doc = SimpleDocTemplate(filename, pagesize=A4,
                             rightMargin=2*cm, leftMargin=2*cm,
@@ -21,8 +22,13 @@ def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler):
     elements.append(Paragraph(tournament_name, title_style))
     elements.append(Spacer(1, 0.5*cm))
 
-    # Date & Info
+    # Info Text (Sorting/Filter)
     normal_style = styles['Normal']
+    if info_text:
+        elements.append(Paragraph(info_text, normal_style))
+        elements.append(Spacer(1, 0.2*cm))
+
+    # Date & Info
     elements.append(Paragraph(f"Datum: {date_str}", normal_style))
     elements.append(Paragraph(f"Zielteiler: {target_teiler:.1f}".replace('.', ','), normal_style))
     elements.append(Spacer(1, 1*cm))
