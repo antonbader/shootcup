@@ -469,12 +469,25 @@ class MainWindow(QMainWindow):
             key = key_map.get(sort_mode, "number")
             entries = self.tournament.get_entries_sorted(key)
 
+            # Apply filter if active
+            is_filtered = False
+            if self.active_filter_names is not None:
+                entries = [e for e in entries if e['name'] in self.active_filter_names]
+                is_filtered = True
+
+            # Construct info text
+            info_text = f"(Sortierung: {sort_mode}"
+            if is_filtered:
+                info_text += ", nach ausgewählten Namen gefiltert"
+            info_text += ")"
+
             success = export_to_pdf(
                 filepath,
                 self.tournament.name,
                 self.tournament.date_str,
                 entries,
-                self.tournament.target_teiler
+                self.tournament.target_teiler,
+                info_text=info_text
             )
 
             if success:
