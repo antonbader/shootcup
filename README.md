@@ -5,7 +5,7 @@ ShootCup ist eine professionelle Software zur Verwaltung von Schießturnieren. S
 ## Funktionen
 
 *   **Turnierverwaltung:** Anlegen und Bearbeiten von Turnieren (Name, Datum). Speichern und Laden von Turnieren im JSON-Format.
-*   **Datenerfassung:** Einfache Eingabe von Startnummer (optional), Name des Schützen und Teiler. Bestehende Einträge können bearbeitet oder gelöscht werden.
+*   **Datenerfassung:** Einfache Eingabe von Startnummer/Scheibennummer/etc. (optional), Name des Schützen und Teiler. Bestehende Einträge können bearbeitet oder gelöscht werden.
 *   **Standbelegung:** Verwaltung der Schießstände (Standard 8, konfigurierbar).
     *   Anzeige der Belegung auf dem zweiten Bildschirm (Grün = Frei, Gelb = Neu belegt, Rot = Länger belegt).
     *   Die Dauer für die "Neu"-Anzeige (Gelb) ist konfigurierbar (Standard 5 Minuten).
