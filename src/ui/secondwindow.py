@@ -219,8 +219,12 @@ class SecondWindow(QWidget):
         self.lanes_container.show()
         self.lanes_header_label.show()
 
+        # Reset container layout alignment
+        self.lanes_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         cols = 8
-        for idx, lane in enumerate(sorted(self.current_assignments.keys())):
+        lanes = sorted(self.current_assignments.keys())
+        for idx, lane in enumerate(lanes):
             val = self.current_assignments[lane] or "frei"
             lbl = QLabel(f"Stand {lane}: {val}")
             lbl.setFixedHeight(50)
@@ -246,6 +250,17 @@ class SecondWindow(QWidget):
             row = idx // cols
             col = idx % cols
             self.lanes_layout.addWidget(lbl, row, col)
+
+        # Calculate and set fixed height for container to prevent vertical expansion
+        num_rows = (len(lanes) + cols - 1) // cols
+        if num_rows > 0:
+            # 50px per row + spacing (5) * (rows-1) + margins (2*2)
+            spacing = self.lanes_layout.spacing()
+            margins = self.lanes_layout.contentsMargins()
+            total_height = (num_rows * 50) + (max(0, num_rows - 1) * spacing) + margins.top() + margins.bottom()
+            self.lanes_container.setFixedHeight(total_height)
+        else:
+            self.lanes_container.setFixedHeight(0)
 
     # =========================================================
     # CONTENT
