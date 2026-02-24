@@ -157,12 +157,7 @@ class SecondWindow(QWidget):
     # =========================================================
     def set_scroll_active(self, active: bool):
         self.is_scrolling = active
-        if active:
-            self.scroll_timer.start(50)
-        else:
-            self.scroll_timer.stop()
-            self.scroll_pos = 0
-            self.scroll_area.horizontalScrollBar().setValue(0)
+        self.rebuild_content()
 
     def set_scroll_speed(self, speed: int):
         self.scroll_speed = max(1, speed)
@@ -291,24 +286,36 @@ class SecondWindow(QWidget):
 
         self.loop_threshold = single_set_width + spacing
 
-        # --- Duplicate until we have enough content ---
-        # We need to scroll up to loop_threshold.
-        # At that point, the view resets to 0.
-        # But visually, at loop_threshold, we are looking at the START of the NEXT set.
-        # We must ensure that there is enough content visible AFTER that point to fill the screen.
-
         viewport_width = self.scroll_area.viewport().width()
-        target_width = self.loop_threshold + viewport_width
 
-        current_width = single_set_width
+        # Decide if we should scroll and duplicate
+        # Condition: Scrolling enabled AND content wider than viewport
+        should_scroll = self.is_scrolling and (single_set_width > viewport_width)
 
-        # Safety: avoid infinite loop
-        if self.loop_threshold > 0:
-            while current_width < target_width:
-                for ci, chunk in enumerate(chunks):
-                    self.add_column_widget(chunk, ci * rows_per_col + 1)
+        if should_scroll:
+            # --- Duplicate until we have enough content ---
+            # We need to scroll up to loop_threshold.
+            # At that point, the view resets to 0.
+            # But visually, at loop_threshold, we are looking at the START of the NEXT set.
+            # We must ensure that there is enough content visible AFTER that point to fill the screen.
 
-                current_width += self.loop_threshold
+            target_width = self.loop_threshold + viewport_width
+            current_width = single_set_width
+
+            # Safety: avoid infinite loop
+            if self.loop_threshold > 0:
+                while current_width < target_width:
+                    for ci, chunk in enumerate(chunks):
+                        self.add_column_widget(chunk, ci * rows_per_col + 1)
+
+                    current_width += self.loop_threshold
+
+            if not self.scroll_timer.isActive():
+                self.scroll_timer.start(50)
+        else:
+            self.scroll_timer.stop()
+            self.scroll_pos = 0
+            self.scroll_area.horizontalScrollBar().setValue(0)
 
         self.content_widget.adjustSize()
 
