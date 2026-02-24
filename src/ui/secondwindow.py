@@ -96,10 +96,17 @@ class SecondWindow(QWidget):
         # =========================================================
         # ================= LANES =================
         # =========================================================
+        self.lanes_header_label = QLabel("Standbelegung (Zuordnung Startnummer zu Stand)")
+        self.lanes_header_label.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        self.lanes_header_label.setStyleSheet("color: #ffffff; margin-top: 5px; margin-bottom: 2px;")
+        self.lanes_header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.lanes_header_label)
+        self.lanes_header_label.hide()
+
         self.lanes_container = QWidget()
         self.lanes_layout = QGridLayout(self.lanes_container)
-        self.lanes_layout.setContentsMargins(0, 5, 0, 5)
-        self.lanes_layout.setSpacing(10)
+        self.lanes_layout.setContentsMargins(0, 2, 0, 2)
+        self.lanes_layout.setSpacing(5)
         self.layout.addWidget(self.lanes_container)
         self.lanes_container.hide()
 
@@ -206,27 +213,35 @@ class SecondWindow(QWidget):
 
         if not self.show_assignments:
             self.lanes_container.hide()
+            self.lanes_header_label.hide()
             return
 
         self.lanes_container.show()
+        self.lanes_header_label.show()
 
-        cols = 6
-        for idx, lane in enumerate(sorted(self.current_assignments.keys())):
+        # Reset container layout alignment
+        self.lanes_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        cols = 8
+        lanes = sorted(self.current_assignments.keys())
+        for idx, lane in enumerate(lanes):
             val = self.current_assignments[lane] or "frei"
             lbl = QLabel(f"Stand {lane}: {val}")
+            lbl.setFixedHeight(50)
+            lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             # Determine style based on whether this lane changed
             if lane in self.changed_lanes:
                 # Changed: Green and Bold
                 style = (
-                    "font-size: 18px; font-weight: bold; color: #00ff00; "
-                    "padding: 5px; border: 2px solid #00ff00; border-radius: 4px;"
+                    "font-size: 14px; font-weight: bold; color: #00ff00; "
+                    "padding: 2px; border: 2px solid #00ff00; border-radius: 4px;"
                 )
             else:
                 # Default: Yellow
                 style = (
-                    "font-size: 18px; font-weight: bold; color: #ffeb3b; "
-                    "padding: 5px; border: 1px solid #444; border-radius: 4px;"
+                    "font-size: 14px; font-weight: bold; color: #ffeb3b; "
+                    "padding: 2px; border: 1px solid #444; border-radius: 4px;"
                 )
 
             lbl.setStyleSheet(style)
@@ -235,6 +250,17 @@ class SecondWindow(QWidget):
             row = idx // cols
             col = idx % cols
             self.lanes_layout.addWidget(lbl, row, col)
+
+        # Calculate and set fixed height for container to prevent vertical expansion
+        num_rows = (len(lanes) + cols - 1) // cols
+        if num_rows > 0:
+            # 50px per row + spacing (5) * (rows-1) + margins (2*2)
+            spacing = self.lanes_layout.spacing()
+            margins = self.lanes_layout.contentsMargins()
+            total_height = (num_rows * 50) + (max(0, num_rows - 1) * spacing) + margins.top() + margins.bottom()
+            self.lanes_container.setFixedHeight(total_height)
+        else:
+            self.lanes_container.setFixedHeight(0)
 
     # =========================================================
     # CONTENT
