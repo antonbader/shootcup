@@ -57,7 +57,7 @@ class SecondWindow(QWidget):
         target_layout.setSpacing(0)
 
         target_title = QLabel("Zielteiler")
-        target_title.setFont(QFont("Arial", 14))
+        target_title.setFont(QFont("Arial", 16))
         target_title.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.target_teiler_label = QLabel("0,0")
@@ -235,7 +235,7 @@ class SecondWindow(QWidget):
         # Reset container layout alignment
         self.lanes_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        cols = 8
+        cols = 7
         lanes = sorted(self.current_assignments.keys())
         for idx, lane in enumerate(lanes):
             val = self.current_assignments[lane] or "frei"
@@ -275,7 +275,7 @@ class SecondWindow(QWidget):
             if not val:
                 # Empty -> Green
                 # "Wenn er nicht belegt ist grün."
-                style = base_style + "color: #00ff00; font-size: 14px;"
+                style = base_style + "color: #00ff00; font-size: 20px; font-weight: bold;"
             else:
                 # Occupied
                 timestamp = self.current_timestamps.get(lane)
@@ -289,11 +289,11 @@ class SecondWindow(QWidget):
 
                 if is_new:
                     # Yellow and Bold
-                    style = base_style + "color: #ffeb3b; font-size: 14px; font-weight: bold; border: 2px solid #ffeb3b;"
+                    style = base_style + "color: #ffeb3b; font-size: 20px; font-weight: bold; border: 2px solid #ffeb3b;"
                 else:
                     # Older than 5 min -> Red
                     # "wenn er weiterhin belegt ist rot"
-                    style = base_style + "color: #ff0000; font-size: 14px;"
+                    style = base_style + "color: #ff0000; font-size: 20px; font-weight: bold;"
 
             lbl.setStyleSheet(style)
 
