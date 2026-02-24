@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
@@ -97,6 +98,7 @@ class MainWindow(QMainWindow):
         self.show_lanes_second_screen = False
         self.show_target_teiler_second_screen = False
         self.lane_assignments = {} # {lane_num: start_nr_str}
+        self.lane_timestamps = {}  # {lane_num: timestamp}
 
         # Filter State
         self.active_filter_names = None
@@ -540,6 +542,8 @@ class MainWindow(QMainWindow):
     def apply_lane_assignments(self, play_sound=True):
         new_assignments = {}
         changed_lanes = []
+        current_time = time.time()
+
         for i, inp in enumerate(self.lane_inputs):
             lane_num = i + 1
             text = inp.text().strip()
@@ -548,9 +552,16 @@ class MainWindow(QMainWindow):
             new_assignments[lane_num] = val
 
             old_val = self.lane_assignments.get(lane_num, "")
-            # Only mark as changed (for highlighting and sound) if there is a NEW non-empty value
-            if val and val != old_val:
-                changed_lanes.append(lane_num)
+
+            # Logic for timestamps
+            if val:
+                # If value is present and changed, update timestamp
+                if val != old_val:
+                    self.lane_timestamps[lane_num] = current_time
+                    changed_lanes.append(lane_num)
+            else:
+                # If value is cleared, remove timestamp
+                self.lane_timestamps.pop(lane_num, None)
 
         self.lane_assignments = new_assignments
 
@@ -652,5 +663,6 @@ class MainWindow(QMainWindow):
                 self.lane_assignments,
                 self.show_lanes_second_screen,
                 changed_lanes=changed_lanes,
-                show_target_teiler=self.show_target_teiler_second_screen
+                show_target_teiler=self.show_target_teiler_second_screen,
+                lane_timestamps=self.lane_timestamps
             )
