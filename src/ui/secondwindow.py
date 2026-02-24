@@ -219,10 +219,12 @@ class SecondWindow(QWidget):
         self.lanes_container.show()
         self.lanes_header_label.show()
 
-        cols = 6
+        cols = 8
         for idx, lane in enumerate(sorted(self.current_assignments.keys())):
             val = self.current_assignments[lane] or "frei"
             lbl = QLabel(f"Stand {lane}: {val}")
+            lbl.setFixedHeight(50)
+            lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             # Determine style based on whether this lane changed
             if lane in self.changed_lanes:
