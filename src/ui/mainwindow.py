@@ -548,12 +548,14 @@ class MainWindow(QMainWindow):
             new_assignments[lane_num] = val
 
             old_val = self.lane_assignments.get(lane_num, "")
+            # Only mark as changed (for highlighting and sound) if there is a NEW non-empty value
             if val and val != old_val:
                 changed_lanes.append(lane_num)
 
         self.lane_assignments = new_assignments
 
-        if play_sound and self.show_lanes_second_screen and self.second_window:
+        # Play sound only if there are relevant changes (additions/updates)
+        if play_sound and changed_lanes and self.show_lanes_second_screen and self.second_window:
              self.player.play()
 
         self.update_second_window(changed_lanes=changed_lanes)

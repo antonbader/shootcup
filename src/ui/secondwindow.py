@@ -96,6 +96,13 @@ class SecondWindow(QWidget):
         # =========================================================
         # ================= LANES =================
         # =========================================================
+        self.lanes_header_label = QLabel("Standbelegung (Zuordnung Startnummer zu Stand)")
+        self.lanes_header_label.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+        self.lanes_header_label.setStyleSheet("color: #ffffff; margin-top: 10px; margin-bottom: 5px;")
+        self.lanes_header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.lanes_header_label)
+        self.lanes_header_label.hide()
+
         self.lanes_container = QWidget()
         self.lanes_layout = QGridLayout(self.lanes_container)
         self.lanes_layout.setContentsMargins(0, 5, 0, 5)
@@ -206,9 +213,11 @@ class SecondWindow(QWidget):
 
         if not self.show_assignments:
             self.lanes_container.hide()
+            self.lanes_header_label.hide()
             return
 
         self.lanes_container.show()
+        self.lanes_header_label.show()
 
         cols = 6
         for idx, lane in enumerate(sorted(self.current_assignments.keys())):
