@@ -154,6 +154,7 @@ class SecondWindow(QWidget):
         self.changed_lanes = []
         self.loop_threshold = 0
         self.lane_labels = {}
+        self.display_duration_seconds = 300 # Default 5 min
 
         # Lane color timer
         self.color_timer = QTimer(self)
@@ -195,7 +196,7 @@ class SecondWindow(QWidget):
     # =========================================================
     # UPDATE DATA
     # =========================================================
-    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None, lane_display_duration_seconds=300):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
@@ -207,6 +208,7 @@ class SecondWindow(QWidget):
         self.current_timestamps = lane_timestamps if lane_timestamps else {}
         self.show_assignments = show_lanes
         self.changed_lanes = changed_lanes if changed_lanes else []
+        self.display_duration_seconds = lane_display_duration_seconds
 
         self.rebuild_lanes_display()
         QTimer.singleShot(50, self.rebuild_content)  # wait for layout size
@@ -281,7 +283,8 @@ class SecondWindow(QWidget):
                 if timestamp:
                     diff = current_time - timestamp
                     # "für maximal 5 Minuten ... gelb und Fett"
-                    if diff < 300: # 5 minutes
+                    # Wenn display_duration_seconds 0 ist, wird dies immer False sein, wenn diff > 0
+                    if diff < self.display_duration_seconds:
                         is_new = True
 
                 if is_new:

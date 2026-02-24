@@ -16,7 +16,7 @@ from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False):
+    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False, lane_duration_min=5.0):
         super().__init__(parent)
         self.setWindowTitle("Einstellungen")
         self.resize(350, 350)
@@ -50,6 +50,16 @@ class SettingsDialog(QDialog):
         self.lanes_spin.setValue(num_lanes)
         layout.addWidget(self.lanes_spin)
 
+        # Lane Duration Setting
+        layout.addWidget(QLabel("Anzeigedauer der Belegung (Minuten):"))
+        self.duration_spin = QDoubleSpinBox()
+        self.duration_spin.setRange(0.0, 60.0)
+        self.duration_spin.setSingleStep(0.5)
+        self.duration_spin.setDecimals(1)
+        self.duration_spin.setSuffix(" Min")
+        self.duration_spin.setValue(lane_duration_min)
+        layout.addWidget(self.duration_spin)
+
         self.show_lanes_check = QCheckBox("Standzuordnung auf 2. Fenster anzeigen")
         self.show_lanes_check.setChecked(show_lanes)
         layout.addWidget(self.show_lanes_check)
@@ -72,6 +82,9 @@ class SettingsDialog(QDialog):
 
     def get_num_lanes(self):
         return self.lanes_spin.value()
+
+    def get_lane_duration(self):
+        return self.duration_spin.value()
 
     def get_show_lanes(self):
         return self.show_lanes_check.isChecked()
@@ -97,6 +110,7 @@ class MainWindow(QMainWindow):
         self.num_lanes = 8
         self.show_lanes_second_screen = False
         self.show_target_teiler_second_screen = False
+        self.lane_display_duration_minutes = 5.0
         self.lane_assignments = {} # {lane_num: start_nr_str}
         self.lane_timestamps = {}  # {lane_num: timestamp}
 
@@ -581,7 +595,8 @@ class MainWindow(QMainWindow):
             self.scroll_speed,
             self.num_lanes,
             self.show_lanes_second_screen,
-            self.show_target_teiler_second_screen
+            self.show_target_teiler_second_screen,
+            self.lane_display_duration_minutes
         )
         if dlg.exec():
             self.selected_screen_index = dlg.get_selected_screen_index()
@@ -592,6 +607,7 @@ class MainWindow(QMainWindow):
             self.num_lanes = new_num_lanes
             self.show_lanes_second_screen = dlg.get_show_lanes()
             self.show_target_teiler_second_screen = dlg.get_show_target_teiler()
+            self.lane_display_duration_minutes = dlg.get_lane_duration()
 
             if lanes_changed:
                 self.setup_lane_inputs()
@@ -664,5 +680,6 @@ class MainWindow(QMainWindow):
                 self.show_lanes_second_screen,
                 changed_lanes=changed_lanes,
                 show_target_teiler=self.show_target_teiler_second_screen,
-                lane_timestamps=self.lane_timestamps
+                lane_timestamps=self.lane_timestamps,
+                lane_display_duration_seconds=self.lane_display_duration_minutes * 60
             )
