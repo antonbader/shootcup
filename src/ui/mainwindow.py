@@ -148,7 +148,9 @@ class MainWindow(QMainWindow):
 
         self.number_input = QLineEdit()
         self.number_input.setPlaceholderText("Nr.")
-        self.number_input.setValidator(QIntValidator(1, 999999999))
+        # Removed validator to allow optional number input
+        # self.number_input.setValidator(QIntValidator(1, 999999999))
+        self.number_input.setValidator(QIntValidator()) # Allows input but no range restriction, basically any int or empty
 
         self.schuetze_input = QLineEdit()
         self.schuetze_input.setPlaceholderText("Name des Schützen")
@@ -196,7 +198,8 @@ class MainWindow(QMainWindow):
         self.target_teiler_input.valueChanged.connect(self.target_teiler_changed)
 
         self.sort_combo = QComboBox()
-        self.sort_combo.addItems(["Nr.", "Name", "Teiler", "Differenz zum Ziel"])
+        # Removed "Nr." and added "Eingabereihenfolge" as default
+        self.sort_combo.addItems(["Eingabereihenfolge", "Name", "Teiler", "Differenz zum Ziel"])
         self.sort_combo.currentIndexChanged.connect(self.update_table)
 
         self.sort_mirror_check = QCheckBox("Sortierung anzeigen")
@@ -310,10 +313,9 @@ class MainWindow(QMainWindow):
 
     def add_entry(self):
         try:
-            if not self.number_input.hasAcceptableInput():
-                 QMessageBox.warning(self, "Fehler", "Bitte eine gültige Nummer eingeben.")
-                 return
-            number = int(self.number_input.text())
+            number_text = self.number_input.text().strip()
+            number = int(number_text) if number_text else None
+
             name = self.schuetze_input.text()
             teiler = self.teiler_input.value()
 
@@ -326,46 +328,45 @@ class MainWindow(QMainWindow):
                 self.clear_inputs()
                 self.update_second_window()
             else:
-                QMessageBox.warning(self, "Fehler", f"Nummer {number} existiert bereits.")
+                QMessageBox.warning(self, "Fehler", "Fehler beim Hinzufügen des Eintrags.")
         except ValueError:
-            QMessageBox.warning(self, "Fehler", "Bitte eine gültige Nummer eingeben.")
+            QMessageBox.warning(self, "Fehler", "Bitte eine gültige Nummer eingeben oder leer lassen.")
 
     def update_entry(self):
-        # We need to know which entry was originally selected.
-        # For now, we assume the user hasn't changed the number field to something else unless intended.
-        # But wait, if they change the number, we need to know the OLD number to update correctly.
-        # So we need to store the currently selected number.
-        if not hasattr(self, 'current_selected_number'):
+        if not hasattr(self, 'current_selected_id'):
             return
 
         try:
-            if not self.number_input.hasAcceptableInput():
-                QMessageBox.warning(self, "Fehler", "Bitte eine gültige Nummer eingeben.")
-                return
-            new_number = int(self.number_input.text())
+            number_text = self.number_input.text().strip()
+            new_number = int(number_text) if number_text else None
+
             name = self.schuetze_input.text()
             teiler = self.teiler_input.value()
 
-            if self.tournament.update_entry(self.current_selected_number, new_number, name, teiler):
+            if self.tournament.update_entry(self.current_selected_id, new_number, name, teiler):
                 self.update_table()
                 self.clear_inputs()
                 self.update_second_window()
             else:
-                 QMessageBox.warning(self, "Fehler", f"Nummer {new_number} kann nicht verwendet werden (existiert bereits).")
+                 QMessageBox.warning(self, "Fehler", "Eintrag konnte nicht aktualisiert werden.")
         except ValueError:
             QMessageBox.warning(self, "Fehler", "Ungültige Eingabe.")
 
     def delete_entry(self):
-        if not hasattr(self, 'current_selected_number'):
+        if not hasattr(self, 'current_selected_id'):
             return
 
-        self.tournament.remove_entry(self.current_selected_number)
+        self.tournament.remove_entry(self.current_selected_id)
         self.update_table()
         self.clear_inputs()
         self.update_second_window()
 
     def load_entry_into_inputs(self, item):
         row = item.row()
+        # Retrieve ID from the first column item
+        id_item = self.table.item(row, 0)
+        entry_id = id_item.data(Qt.ItemDataRole.UserRole)
+
         # Ensure we are getting the items from the correct columns regardless of which cell was clicked
         number_item = self.table.item(row, 0)
         name_item = self.table.item(row, 1)
@@ -374,15 +375,15 @@ class MainWindow(QMainWindow):
         if not (number_item and name_item and teiler_item):
             return
 
-        number = int(number_item.text())
+        number_text = number_item.text()
         name = name_item.text()
         teiler = float(teiler_item.text().replace(',', '.'))
 
-        self.number_input.setText(str(number))
+        self.number_input.setText(number_text)
         self.schuetze_input.setText(name)
         self.teiler_input.setValue(teiler)
 
-        self.current_selected_number = number
+        self.current_selected_id = entry_id
 
         self.add_btn.setEnabled(False)
         self.update_btn.setEnabled(True)
@@ -396,19 +397,19 @@ class MainWindow(QMainWindow):
         self.add_btn.setEnabled(True)
         self.update_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
-        if hasattr(self, 'current_selected_number'):
-            del self.current_selected_number
+        if hasattr(self, 'current_selected_id'):
+            del self.current_selected_id
             self.table.clearSelection()
 
     def update_table(self):
         sort_mode = self.sort_combo.currentText()
         key_map = {
-            "Nr.": "number",
+            "Eingabereihenfolge": "insertion_order",
             "Name": "name",
             "Teiler": "teiler",
             "Differenz zum Ziel": "diff"
         }
-        key = key_map.get(sort_mode, "number")
+        key = key_map.get(sort_mode, "insertion_order")
 
         entries = self.tournament.get_entries_sorted(key)
 
@@ -417,7 +418,11 @@ class MainWindow(QMainWindow):
 
         self.table.setRowCount(len(entries))
         for row, entry in enumerate(entries):
-            self.table.setItem(row, 0, QTableWidgetItem(str(entry['number'])))
+            number_val = str(entry['number']) if entry['number'] is not None else ""
+            item_number = QTableWidgetItem(number_val)
+            item_number.setData(Qt.ItemDataRole.UserRole, entry['id'])
+
+            self.table.setItem(row, 0, item_number)
             self.table.setItem(row, 1, QTableWidgetItem(entry['name']))
             self.table.setItem(row, 2, QTableWidgetItem(f"{entry['teiler']:.1f}".replace('.', ',')))
 
@@ -461,12 +466,12 @@ class MainWindow(QMainWindow):
             # Get sorted entries based on current sort mode
             sort_mode = self.sort_combo.currentText()
             key_map = {
-                "Nr.": "number",
+                "Eingabereihenfolge": "insertion_order",
                 "Name": "name",
                 "Teiler": "teiler",
                 "Differenz zum Ziel": "diff"
             }
-            key = key_map.get(sort_mode, "number")
+            key = key_map.get(sort_mode, "insertion_order")
             entries = self.tournament.get_entries_sorted(key)
 
             # Apply filter if active
@@ -625,12 +630,12 @@ class MainWindow(QMainWindow):
             if self.sort_mirror_check.isChecked():
                 sort_mode = self.sort_combo.currentText()
                 key_map = {
-                    "Nr.": "number",
+                    "Eingabereihenfolge": "insertion_order",
                     "Name": "name",
                     "Teiler": "teiler",
                     "Differenz zum Ziel": "diff"
                 }
-                key = key_map.get(sort_mode, "number")
+                key = key_map.get(sort_mode, "insertion_order")
                 entries = self.tournament.get_entries_sorted(key)
 
                 if self.active_filter_names is not None:
