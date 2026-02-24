@@ -1,4 +1,5 @@
 import sys
+import time
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QGridLayout, QFrame, QScrollArea, QSizePolicy
@@ -148,9 +149,17 @@ class SecondWindow(QWidget):
         self.current_entries = []
         self.current_target_teiler = 0.0
         self.current_assignments = {}
+        self.current_timestamps = {}
         self.show_assignments = False
         self.changed_lanes = []
         self.loop_threshold = 0
+        self.lane_labels = {}
+        self.display_duration_seconds = 300 # Default 5 min
+
+        # Lane color timer
+        self.color_timer = QTimer(self)
+        self.color_timer.timeout.connect(self.update_lane_colors)
+        self.color_timer.start(1000)
 
     # =========================================================
     # WINDOW EVENTS
@@ -187,7 +196,7 @@ class SecondWindow(QWidget):
     # =========================================================
     # UPDATE DATA
     # =========================================================
-    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None, lane_display_duration_seconds=300):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
@@ -196,8 +205,10 @@ class SecondWindow(QWidget):
         self.current_entries = entries
         self.current_target_teiler = target_teiler
         self.current_assignments = lane_assignments if lane_assignments else {}
+        self.current_timestamps = lane_timestamps if lane_timestamps else {}
         self.show_assignments = show_lanes
         self.changed_lanes = changed_lanes if changed_lanes else []
+        self.display_duration_seconds = lane_display_duration_seconds
 
         self.rebuild_lanes_display()
         QTimer.singleShot(50, self.rebuild_content)  # wait for layout size
@@ -210,6 +221,8 @@ class SecondWindow(QWidget):
             item = self.lanes_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+
+        self.lane_labels.clear()
 
         if not self.show_assignments:
             self.lanes_container.hide()
@@ -229,27 +242,16 @@ class SecondWindow(QWidget):
             lbl = QLabel(f"Stand {lane}: {val}")
             lbl.setFixedHeight(50)
             lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-            # Determine style based on whether this lane changed
-            if lane in self.changed_lanes:
-                # Changed: Green and Bold
-                style = (
-                    "font-size: 14px; font-weight: bold; color: #00ff00; "
-                    "padding: 2px; border: 2px solid #00ff00; border-radius: 4px;"
-                )
-            else:
-                # Default: Yellow
-                style = (
-                    "font-size: 14px; font-weight: bold; color: #ffeb3b; "
-                    "padding: 2px; border: 1px solid #444; border-radius: 4px;"
-                )
-
-            lbl.setStyleSheet(style)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             row = idx // cols
             col = idx % cols
             self.lanes_layout.addWidget(lbl, row, col)
+
+            self.lane_labels[lane] = lbl
+
+        # Initial Color Update
+        self.update_lane_colors()
 
         # Calculate and set fixed height for container to prevent vertical expansion
         num_rows = (len(lanes) + cols - 1) // cols
@@ -261,6 +263,39 @@ class SecondWindow(QWidget):
             self.lanes_container.setFixedHeight(total_height)
         else:
             self.lanes_container.setFixedHeight(0)
+
+    def update_lane_colors(self):
+        current_time = time.time()
+        for lane, lbl in self.lane_labels.items():
+            val = self.current_assignments.get(lane, "")
+
+            # Default style base
+            base_style = "padding: 2px; border-radius: 4px; border: 1px solid #444;"
+
+            if not val:
+                # Empty -> Green
+                # "Wenn er nicht belegt ist grün."
+                style = base_style + "color: #00ff00; font-size: 14px;"
+            else:
+                # Occupied
+                timestamp = self.current_timestamps.get(lane)
+                is_new = False
+                if timestamp:
+                    diff = current_time - timestamp
+                    # "für maximal 5 Minuten ... gelb und Fett"
+                    # Wenn display_duration_seconds 0 ist, wird dies immer False sein, wenn diff > 0
+                    if diff < self.display_duration_seconds:
+                        is_new = True
+
+                if is_new:
+                    # Yellow and Bold
+                    style = base_style + "color: #ffeb3b; font-size: 14px; font-weight: bold; border: 2px solid #ffeb3b;"
+                else:
+                    # Older than 5 min -> Red
+                    # "wenn er weiterhin belegt ist rot"
+                    style = base_style + "color: #ff0000; font-size: 14px;"
+
+            lbl.setStyleSheet(style)
 
     # =========================================================
     # CONTENT

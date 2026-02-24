@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
@@ -15,7 +16,7 @@ from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False):
+    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False, lane_duration_min=5.0):
         super().__init__(parent)
         self.setWindowTitle("Einstellungen")
         self.resize(350, 350)
@@ -49,6 +50,16 @@ class SettingsDialog(QDialog):
         self.lanes_spin.setValue(num_lanes)
         layout.addWidget(self.lanes_spin)
 
+        # Lane Duration Setting
+        layout.addWidget(QLabel("Anzeigedauer der Belegung (Minuten):"))
+        self.duration_spin = QDoubleSpinBox()
+        self.duration_spin.setRange(0.0, 60.0)
+        self.duration_spin.setSingleStep(0.5)
+        self.duration_spin.setDecimals(1)
+        self.duration_spin.setSuffix(" Min")
+        self.duration_spin.setValue(lane_duration_min)
+        layout.addWidget(self.duration_spin)
+
         self.show_lanes_check = QCheckBox("Standzuordnung auf 2. Fenster anzeigen")
         self.show_lanes_check.setChecked(show_lanes)
         layout.addWidget(self.show_lanes_check)
@@ -71,6 +82,9 @@ class SettingsDialog(QDialog):
 
     def get_num_lanes(self):
         return self.lanes_spin.value()
+
+    def get_lane_duration(self):
+        return self.duration_spin.value()
 
     def get_show_lanes(self):
         return self.show_lanes_check.isChecked()
@@ -96,7 +110,9 @@ class MainWindow(QMainWindow):
         self.num_lanes = 8
         self.show_lanes_second_screen = False
         self.show_target_teiler_second_screen = False
+        self.lane_display_duration_minutes = 5.0
         self.lane_assignments = {} # {lane_num: start_nr_str}
+        self.lane_timestamps = {}  # {lane_num: timestamp}
 
         # Filter State
         self.active_filter_names = None
@@ -540,6 +556,8 @@ class MainWindow(QMainWindow):
     def apply_lane_assignments(self, play_sound=True):
         new_assignments = {}
         changed_lanes = []
+        current_time = time.time()
+
         for i, inp in enumerate(self.lane_inputs):
             lane_num = i + 1
             text = inp.text().strip()
@@ -548,9 +566,16 @@ class MainWindow(QMainWindow):
             new_assignments[lane_num] = val
 
             old_val = self.lane_assignments.get(lane_num, "")
-            # Only mark as changed (for highlighting and sound) if there is a NEW non-empty value
-            if val and val != old_val:
-                changed_lanes.append(lane_num)
+
+            # Logic for timestamps
+            if val:
+                # If value is present and changed, update timestamp
+                if val != old_val:
+                    self.lane_timestamps[lane_num] = current_time
+                    changed_lanes.append(lane_num)
+            else:
+                # If value is cleared, remove timestamp
+                self.lane_timestamps.pop(lane_num, None)
 
         self.lane_assignments = new_assignments
 
@@ -570,7 +595,8 @@ class MainWindow(QMainWindow):
             self.scroll_speed,
             self.num_lanes,
             self.show_lanes_second_screen,
-            self.show_target_teiler_second_screen
+            self.show_target_teiler_second_screen,
+            self.lane_display_duration_minutes
         )
         if dlg.exec():
             self.selected_screen_index = dlg.get_selected_screen_index()
@@ -581,6 +607,7 @@ class MainWindow(QMainWindow):
             self.num_lanes = new_num_lanes
             self.show_lanes_second_screen = dlg.get_show_lanes()
             self.show_target_teiler_second_screen = dlg.get_show_target_teiler()
+            self.lane_display_duration_minutes = dlg.get_lane_duration()
 
             if lanes_changed:
                 self.setup_lane_inputs()
@@ -652,5 +679,7 @@ class MainWindow(QMainWindow):
                 self.lane_assignments,
                 self.show_lanes_second_screen,
                 changed_lanes=changed_lanes,
-                show_target_teiler=self.show_target_teiler_second_screen
+                show_target_teiler=self.show_target_teiler_second_screen,
+                lane_timestamps=self.lane_timestamps,
+                lane_display_duration_seconds=self.lane_display_duration_minutes * 60
             )
