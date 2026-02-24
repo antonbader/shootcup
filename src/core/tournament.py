@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime
 from operator import itemgetter
 
@@ -7,7 +8,7 @@ class Tournament:
         self.name = name
         self.date_str = date_str if date_str else datetime.now().strftime("%d.%m.%Y")
         self.target_teiler = 0.0
-        self.entries = []  # List of dicts: {'number': int, 'name': str, 'teiler': float}
+        self.entries = []  # List of dicts: {'id': str, 'number': int|None, 'name': str, 'teiler': float}
 
     def set_name(self, name):
         self.name = name
@@ -19,56 +20,48 @@ class Tournament:
         self.target_teiler = round(float(target), 1)
 
     def add_entry(self, number, name, teiler):
-        """Adds a new entry. Returns True if successful, False if number already exists."""
-        if any(e['number'] == number for e in self.entries):
-            return False
-
+        """Adds a new entry. Returns True if successful. No uniqueness check for number."""
         entry = {
-            'number': int(number),
+            'id': uuid.uuid4().hex,
+            'number': int(number) if number is not None and str(number).strip() != "" else None,
             'name': name,
             'teiler': round(float(teiler), 1)
         }
         self.entries.append(entry)
         return True
 
-    def remove_entry(self, number):
-        """Removes an entry by number."""
-        self.entries = [e for e in self.entries if e['number'] != number]
+    def remove_entry(self, entry_id):
+        """Removes an entry by ID."""
+        self.entries = [e for e in self.entries if e.get('id') != entry_id]
 
-    def update_entry(self, original_number, new_number, new_name, new_teiler):
+    def update_entry(self, entry_id, new_number, new_name, new_teiler):
         """
-        Updates an entry.
-        If new_number is different from original_number, checks for uniqueness.
-        Returns True if successful, False if new_number already exists (and is not the original).
+        Updates an entry by ID.
+        Returns True if successful, False if ID not found.
         """
-        if original_number != new_number:
-            if any(e['number'] == new_number for e in self.entries):
-                return False
-
         for entry in self.entries:
-            if entry['number'] == original_number:
-                entry['number'] = int(new_number)
+            if entry.get('id') == entry_id:
+                entry['number'] = int(new_number) if new_number is not None and str(new_number).strip() != "" else None
                 entry['name'] = new_name
                 entry['teiler'] = round(float(new_teiler), 1)
                 return True
         return False
 
-    def get_entries_sorted(self, sort_key='number'):
+    def get_entries_sorted(self, sort_key='insertion_order'):
         """
         Returns a sorted list of entries based on the key.
-        sort_key can be: 'number', 'name', 'teiler', 'diff'.
+        sort_key can be: 'insertion_order', 'name', 'teiler', 'diff'.
         'diff' sorts by the absolute difference to target_teiler.
         """
         if sort_key == 'diff':
             # Sort by difference, then by teiler (ascending) as secondary
             return sorted(self.entries, key=lambda x: (abs(x['teiler'] - self.target_teiler), x['teiler']))
-        elif sort_key == 'number':
-             return sorted(self.entries, key=itemgetter('number'))
         elif sort_key == 'name':
              return sorted(self.entries, key=lambda x: x['name'].lower())
         elif sort_key == 'teiler':
              return sorted(self.entries, key=itemgetter('teiler'))
         else:
+            # Default: insertion order (as is in list)
             return self.entries
 
     def to_dict(self):
@@ -96,6 +89,12 @@ class Tournament:
             self.date_str = data.get('date', datetime.now().strftime("%d.%m.%Y"))
             self.target_teiler = data.get('target_teiler', 0.0)
             self.entries = data.get('entries', [])
+
+            # Backfill IDs for existing entries if missing
+            for entry in self.entries:
+                if 'id' not in entry:
+                    entry['id'] = uuid.uuid4().hex
+
             return True
         except Exception as e:
             print(f"Error loading from JSON: {e}")
