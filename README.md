@@ -1,6 +1,6 @@
 # ShootCup Tournament Manager
 
-ShootCup ist eine Software zur Verwaltung von Schießturnieren.
+ShootCup ist eine Software zur Verwaltung von Schießturnieren. Ausgewertet werden kann nach dem besten Teiler oder wer am nächsten an einem Zielteiler liegt.
 
 ## Funktionen
 
