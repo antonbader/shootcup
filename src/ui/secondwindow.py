@@ -57,11 +57,11 @@ class SecondWindow(QWidget):
         target_layout.setSpacing(0)
 
         target_title = QLabel("Zielteiler")
-        target_title.setFont(QFont("Arial", 16))
+        target_title.setFont(QFont("Arial", 30))
         target_title.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.target_teiler_label = QLabel("0,0")
-        self.target_teiler_label.setFont(QFont("Arial", 48, QFont.Weight.Bold))
+        self.target_teiler_label.setFont(QFont("Arial", 60, QFont.Weight.Bold))
         self.target_teiler_label.setStyleSheet("color: #4CAF50;")
         self.target_teiler_label.setAlignment(Qt.AlignmentFlag.AlignRight)
 
@@ -235,12 +235,12 @@ class SecondWindow(QWidget):
         # Reset container layout alignment
         self.lanes_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        cols = 7
+        cols = 5
         lanes = sorted(self.current_assignments.keys())
         for idx, lane in enumerate(lanes):
             val = self.current_assignments[lane] or "frei"
             lbl = QLabel(f"Stand {lane}: {val}")
-            lbl.setFixedHeight(50)
+            lbl.setFixedHeight(70)
             lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -259,7 +259,7 @@ class SecondWindow(QWidget):
             # 50px per row + spacing (5) * (rows-1) + margins (2*2)
             spacing = self.lanes_layout.spacing()
             margins = self.lanes_layout.contentsMargins()
-            total_height = (num_rows * 50) + (max(0, num_rows - 1) * spacing) + margins.top() + margins.bottom()
+            total_height = (num_rows * 70) + (max(0, num_rows - 1) * spacing) + margins.top() + margins.bottom()
             self.lanes_container.setFixedHeight(total_height)
         else:
             self.lanes_container.setFixedHeight(0)
@@ -275,7 +275,7 @@ class SecondWindow(QWidget):
             if not val:
                 # Empty -> Green
                 # "Wenn er nicht belegt ist grün."
-                style = base_style + "color: #00ff00; font-size: 20px; font-weight: bold;"
+                style = base_style + "color: #00ff00; font-size: 40px; font-weight: bold;"
             else:
                 # Occupied
                 timestamp = self.current_timestamps.get(lane)
@@ -289,11 +289,11 @@ class SecondWindow(QWidget):
 
                 if is_new:
                     # Yellow and Bold
-                    style = base_style + "color: #ffeb3b; font-size: 20px; font-weight: bold; border: 2px solid #ffeb3b;"
+                    style = base_style + "color: #ffeb3b; font-size: 40px; font-weight: bold; border: 2px solid #ffeb3b;"
                 else:
                     # Older than 5 min -> Red
                     # "wenn er weiterhin belegt ist rot"
-                    style = base_style + "color: #ff0000; font-size: 20px; font-weight: bold;"
+                    style = base_style + "color: #ff0000; font-size: 40px; font-weight: bold;"
 
             lbl.setStyleSheet(style)
 
