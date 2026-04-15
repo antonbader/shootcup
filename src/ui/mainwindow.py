@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem, QDoubleSpinBox, QDateEdit,
     QHeaderView, QMessageBox, QFileDialog, QGroupBox, QFormLayout, QComboBox,
     QDialog, QVBoxLayout, QDialogButtonBox, QApplication, QCheckBox, QSlider,
-    QSpinBox, QGridLayout, QAbstractItemView
+    QSpinBox, QGridLayout, QAbstractItemView, QCompleter
 )
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt, QDate, QRect, QUrl
@@ -137,6 +137,22 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
+        # --- Mode Toggle Section ---
+        mode_layout = QHBoxLayout()
+        self.mode_teiler_btn = QPushButton("Modus: Teiler")
+        self.mode_ringzahl_btn = QPushButton("Modus: Ringzahl")
+        self.mode_teiler_btn.setCheckable(True)
+        self.mode_ringzahl_btn.setCheckable(True)
+        self.mode_teiler_btn.setChecked(True)
+
+        self.mode_teiler_btn.clicked.connect(lambda: self.set_mode("teiler"))
+        self.mode_ringzahl_btn.clicked.connect(lambda: self.set_mode("ringzahl"))
+
+        mode_layout.addWidget(self.mode_teiler_btn)
+        mode_layout.addWidget(self.mode_ringzahl_btn)
+        mode_layout.addStretch()
+        main_layout.addLayout(mode_layout)
+
         # --- Tournament Info Section ---
         info_group = QGroupBox("Turnier Informationen")
         info_layout = QHBoxLayout()
@@ -171,6 +187,13 @@ class MainWindow(QMainWindow):
         self.schuetze_input = QLineEdit()
         self.schuetze_input.setPlaceholderText("Name des Schützen")
 
+        self.klasse_input = QLineEdit()
+        self.klasse_input.setPlaceholderText("Klasse (optional)")
+        self.klasse_completer = QCompleter([])
+        self.klasse_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.klasse_input.setCompleter(self.klasse_completer)
+
+        self.teiler_label = QLabel("Teiler:")
         self.teiler_input = QDoubleSpinBox()
         self.teiler_input.setRange(0.0, 1000000.0)
         self.teiler_input.setDecimals(1)
@@ -194,7 +217,9 @@ class MainWindow(QMainWindow):
         entry_layout.addWidget(self.number_input)
         entry_layout.addWidget(QLabel("Name:"))
         entry_layout.addWidget(self.schuetze_input)
-        entry_layout.addWidget(QLabel("Teiler:"))
+        entry_layout.addWidget(QLabel("Klasse:"))
+        entry_layout.addWidget(self.klasse_input)
+        entry_layout.addWidget(self.teiler_label)
         entry_layout.addWidget(self.teiler_input)
         entry_layout.addWidget(self.add_btn)
         entry_layout.addWidget(self.update_btn)
@@ -204,8 +229,9 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(entry_group)
 
         # --- Target Teiler & Sorting ---
-        control_layout = QHBoxLayout()
+        self.control_layout = QHBoxLayout()
 
+        self.target_teiler_label = QLabel("Zielteiler:")
         self.target_teiler_input = QDoubleSpinBox()
         self.target_teiler_input.setRange(0.0, 1000000.0)
         self.target_teiler_input.setDecimals(1)
@@ -224,19 +250,19 @@ class MainWindow(QMainWindow):
         self.filter_btn = QPushButton("Nach markierten Namen filtern")
         self.filter_btn.clicked.connect(self.toggle_filter)
 
-        control_layout.addWidget(QLabel("Zielteiler:"))
-        control_layout.addWidget(self.target_teiler_input)
-        control_layout.addWidget(self.filter_btn)
-        control_layout.addStretch()
-        control_layout.addWidget(self.sort_mirror_check)
-        control_layout.addWidget(QLabel("Sortierung:"))
-        control_layout.addWidget(self.sort_combo)
-        main_layout.addLayout(control_layout)
+        self.control_layout.addWidget(self.target_teiler_label)
+        self.control_layout.addWidget(self.target_teiler_input)
+        self.control_layout.addWidget(self.filter_btn)
+        self.control_layout.addStretch()
+        self.control_layout.addWidget(self.sort_mirror_check)
+        self.control_layout.addWidget(QLabel("Sortierung:"))
+        self.control_layout.addWidget(self.sort_combo)
+        main_layout.addLayout(self.control_layout)
 
         # --- Table Section ---
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["Nr.", "Name", "Teiler", "Abweichung"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["Nr.", "Name", "Klasse", "Teiler", "Abweichung"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -286,6 +312,55 @@ class MainWindow(QMainWindow):
 
     # --- Logic ---
 
+    def set_mode(self, mode):
+        self.tournament.set_mode(mode)
+
+        # Update buttons
+        if mode == "teiler":
+            self.mode_teiler_btn.setChecked(True)
+            self.mode_ringzahl_btn.setChecked(False)
+
+            # UI Updates for Teiler
+            self.teiler_label.setText("Teiler:")
+            self.target_teiler_label.show()
+            self.target_teiler_input.show()
+            self.table.setHorizontalHeaderLabels(["Nr.", "Name", "Klasse", "Teiler", "Abweichung"])
+            self.table.setColumnHidden(4, False) # Show Abweichung
+
+            # Update combo box
+            current_sort = self.sort_combo.currentText()
+            self.sort_combo.clear()
+            self.sort_combo.addItems(["Eingabereihenfolge", "Name", "Teiler", "Differenz zum Ziel"])
+            if current_sort in ["Eingabereihenfolge", "Name", "Teiler"]:
+                self.sort_combo.setCurrentText(current_sort)
+        else:
+            self.mode_teiler_btn.setChecked(False)
+            self.mode_ringzahl_btn.setChecked(True)
+
+            # UI Updates for Ringzahl
+            self.teiler_label.setText("Ringzahl:")
+            self.target_teiler_label.hide()
+            self.target_teiler_input.hide()
+            self.table.setHorizontalHeaderLabels(["Nr.", "Name", "Klasse", "Ringzahl", "Abweichung"])
+            self.table.setColumnHidden(4, True) # Hide Abweichung
+
+            # Update combo box
+            current_sort = self.sort_combo.currentText()
+            self.sort_combo.clear()
+            self.sort_combo.addItems(["Eingabereihenfolge", "Name", "Ringzahl"])
+            if current_sort in ["Eingabereihenfolge", "Name"]:
+                self.sort_combo.setCurrentText(current_sort)
+            elif current_sort == "Teiler":
+                self.sort_combo.setCurrentText("Ringzahl")
+
+        self.update_classes_completer()
+        self.update_table()
+        self.update_second_window()
+
+    def update_classes_completer(self):
+        classes = self.tournament.get_all_classes()
+        self.klasse_completer.model().setStringList(classes)
+
     def update_tournament_info(self):
         self.tournament.set_name(self.name_input.text())
         self.tournament.set_date(self.date_input.text())
@@ -333,13 +408,15 @@ class MainWindow(QMainWindow):
             number = int(number_text) if number_text else None
 
             name = self.schuetze_input.text()
-            teiler = self.teiler_input.value()
+            score = self.teiler_input.value()
+            klasse = self.klasse_input.text()
 
             if not name:
                 QMessageBox.warning(self, "Fehler", "Bitte einen Namen eingeben.")
                 return
 
-            if self.tournament.add_entry(number, name, teiler):
+            if self.tournament.add_entry(number, name, score, klasse):
+                self.update_classes_completer()
                 self.update_table()
                 self.clear_inputs()
                 self.update_second_window()
@@ -357,9 +434,11 @@ class MainWindow(QMainWindow):
             new_number = int(number_text) if number_text else None
 
             name = self.schuetze_input.text()
-            teiler = self.teiler_input.value()
+            score = self.teiler_input.value()
+            klasse = self.klasse_input.text()
 
-            if self.tournament.update_entry(self.current_selected_id, new_number, name, teiler):
+            if self.tournament.update_entry(self.current_selected_id, new_number, name, score, klasse):
+                self.update_classes_completer()
                 self.update_table()
                 self.clear_inputs()
                 self.update_second_window()
@@ -373,6 +452,7 @@ class MainWindow(QMainWindow):
             return
 
         self.tournament.remove_entry(self.current_selected_id)
+        self.update_classes_completer()
         self.update_table()
         self.clear_inputs()
         self.update_second_window()
@@ -386,18 +466,21 @@ class MainWindow(QMainWindow):
         # Ensure we are getting the items from the correct columns regardless of which cell was clicked
         number_item = self.table.item(row, 0)
         name_item = self.table.item(row, 1)
-        teiler_item = self.table.item(row, 2)
+        klasse_item = self.table.item(row, 2)
+        score_item = self.table.item(row, 3)
 
-        if not (number_item and name_item and teiler_item):
+        if not (number_item and name_item and score_item):
             return
 
         number_text = number_item.text()
         name = name_item.text()
-        teiler = float(teiler_item.text().replace(',', '.'))
+        klasse = klasse_item.text() if klasse_item else ""
+        score = float(score_item.text().replace(',', '.'))
 
         self.number_input.setText(number_text)
         self.schuetze_input.setText(name)
-        self.teiler_input.setValue(teiler)
+        self.klasse_input.setText(klasse)
+        self.teiler_input.setValue(score)
 
         self.current_selected_id = entry_id
 
@@ -408,6 +491,7 @@ class MainWindow(QMainWindow):
     def clear_inputs(self):
         self.number_input.clear()
         self.schuetze_input.clear()
+        self.klasse_input.clear()
         self.teiler_input.setValue(0.0)
 
         self.add_btn.setEnabled(True)
@@ -423,6 +507,7 @@ class MainWindow(QMainWindow):
             "Eingabereihenfolge": "insertion_order",
             "Name": "name",
             "Teiler": "teiler",
+            "Ringzahl": "ringzahl",
             "Differenz zum Ziel": "diff"
         }
         key = key_map.get(sort_mode, "insertion_order")
@@ -433,6 +518,8 @@ class MainWindow(QMainWindow):
             entries = [e for e in entries if e['name'] in self.active_filter_names]
 
         self.table.setRowCount(len(entries))
+        score_key = 'teiler' if self.tournament.mode == "teiler" else 'ringzahl'
+
         for row, entry in enumerate(entries):
             number_val = str(entry['number']) if entry['number'] is not None else ""
             item_number = QTableWidgetItem(number_val)
@@ -440,10 +527,17 @@ class MainWindow(QMainWindow):
 
             self.table.setItem(row, 0, item_number)
             self.table.setItem(row, 1, QTableWidgetItem(entry['name']))
-            self.table.setItem(row, 2, QTableWidgetItem(f"{entry['teiler']:.1f}".replace('.', ',')))
 
-            diff = abs(entry['teiler'] - self.tournament.target_teiler)
-            self.table.setItem(row, 3, QTableWidgetItem(f"{diff:.1f}".replace('.', ',')))
+            klasse_val = entry.get('klasse') or ""
+            self.table.setItem(row, 2, QTableWidgetItem(klasse_val))
+
+            self.table.setItem(row, 3, QTableWidgetItem(f"{entry[score_key]:.1f}".replace('.', ',')))
+
+            if self.tournament.mode == "teiler":
+                diff = abs(entry['teiler'] - self.tournament.target_teiler)
+                self.table.setItem(row, 4, QTableWidgetItem(f"{diff:.1f}".replace('.', ',')))
+            else:
+                self.table.setItem(row, 4, QTableWidgetItem("")) # Hidden column anyway
 
         if self.second_window and self.sort_mirror_check.isChecked():
             self.update_second_window()
@@ -468,7 +562,7 @@ class MainWindow(QMainWindow):
                 except:
                     pass
                 self.target_teiler_input.setValue(self.tournament.target_teiler)
-                self.update_table()
+                self.set_mode(self.tournament.mode) # This handles updating table and combobox
                 QMessageBox.information(self, "Erfolg", "Turnier geladen.")
             else:
                 QMessageBox.critical(self, "Fehler", "Laden fehlgeschlagen.")
@@ -508,7 +602,8 @@ class MainWindow(QMainWindow):
                 self.tournament.date_str,
                 entries,
                 self.tournament.target_teiler,
-                info_text=info_text
+                info_text=info_text,
+                mode=self.tournament.mode
             )
 
             if success:
@@ -654,7 +749,7 @@ class MainWindow(QMainWindow):
             if changed_lanes is None:
                 changed_lanes = []
 
-            entries_to_send = self.tournament.entries
+            entries_to_send = self.tournament.entries if self.tournament.mode == "teiler" else self.tournament.entries_ringzahl
 
             if self.sort_mirror_check.isChecked():
                 sort_mode = self.sort_combo.currentText()
@@ -662,6 +757,7 @@ class MainWindow(QMainWindow):
                     "Eingabereihenfolge": "insertion_order",
                     "Name": "name",
                     "Teiler": "teiler",
+                    "Ringzahl": "ringzahl",
                     "Differenz zum Ziel": "diff"
                 }
                 key = key_map.get(sort_mode, "insertion_order")
@@ -679,7 +775,8 @@ class MainWindow(QMainWindow):
                 self.lane_assignments,
                 self.show_lanes_second_screen,
                 changed_lanes=changed_lanes,
-                show_target_teiler=self.show_target_teiler_second_screen,
+                show_target_teiler=self.show_target_teiler_second_screen and self.tournament.mode == "teiler",
                 lane_timestamps=self.lane_timestamps,
-                lane_display_duration_seconds=self.lane_display_duration_minutes * 60
+                lane_display_duration_seconds=self.lane_display_duration_minutes * 60,
+                mode=self.tournament.mode
             )
