@@ -14,6 +14,8 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from src.core.tournament import Tournament
 from src.ui.secondwindow import SecondWindow
 from src.core.pdf_exporter import export_to_pdf
+from src.core.config import load_config
+from src.core.rest_server import RestServerThread
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False, lane_duration_min=5.0):
@@ -100,6 +102,12 @@ class MainWindow(QMainWindow):
 
         # Initialize Tournament Logic
         self.tournament = Tournament()
+
+        # Load Config and start REST server
+        self.config = load_config()
+        self.rest_thread = RestServerThread(self.config.get("rest_port", 5003))
+        self.rest_thread.data_received.connect(self.handle_rest_data)
+        self.rest_thread.start()
 
         # Second Window State
         self.second_window = None
@@ -401,6 +409,18 @@ class MainWindow(QMainWindow):
         self.tournament.set_target_teiler(self.target_teiler_input.value())
         self.update_table()
         self.update_second_window()
+
+
+    def handle_rest_data(self, name, score, score_type, klasse):
+        original_mode = self.tournament.mode
+        self.tournament.set_mode(score_type)
+        self.tournament.add_entry(None, name, score, klasse)
+        self.tournament.set_mode(original_mode)
+
+        if score_type == original_mode:
+            self.update_table()
+            self.update_classes_completer()
+            self.update_second_window()
 
     def add_entry(self):
         try:
