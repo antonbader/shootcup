@@ -196,7 +196,7 @@ class SecondWindow(QWidget):
     # =========================================================
     # UPDATE DATA
     # =========================================================
-    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None, lane_display_duration_seconds=300):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None, lane_display_duration_seconds=300, mode="teiler"):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
@@ -209,6 +209,7 @@ class SecondWindow(QWidget):
         self.show_assignments = show_lanes
         self.changed_lanes = changed_lanes if changed_lanes else []
         self.display_duration_seconds = lane_display_duration_seconds
+        self.current_mode = mode
 
         self.rebuild_lanes_display()
         QTimer.singleShot(50, self.rebuild_content)  # wait for layout size
@@ -306,12 +307,35 @@ class SecondWindow(QWidget):
             if item.widget():
                 item.widget().deleteLater()
 
-        # Always use the order provided by the main window.
-        # This defaults to insertion order (unless "Sortierung anzeigen" is checked and modified in main window).
-        sorted_entries = self.current_entries
-
-        if not sorted_entries:
+        if not self.current_entries:
             return
+
+        # Transform entries for display: Insert class headers and calculate ranks
+        display_entries = []
+        has_classes = any(e.get('klasse') for e in self.current_entries)
+
+        current_class = object() # dummy object for first iteration
+        rank = 1
+
+        if has_classes:
+            for entry in self.current_entries:
+                cls = entry.get('klasse')
+                if cls != current_class:
+                    current_class = cls
+                    header_name = cls if cls else "Nicht zugeordnet"
+                    display_entries.append({"is_header": True, "name": header_name})
+                    rank = 1 # Reset rank for new class
+
+                entry_copy = entry.copy()
+                entry_copy['display_rank'] = rank
+                display_entries.append(entry_copy)
+                rank += 1
+        else:
+            for entry in self.current_entries:
+                entry_copy = entry.copy()
+                entry_copy['display_rank'] = rank
+                display_entries.append(entry_copy)
+                rank += 1
 
         # REAL height
         available_height = self.scroll_area.viewport().height()
@@ -319,9 +343,10 @@ class SecondWindow(QWidget):
             available_height = 800
 
         row_height = 30
+        # Headers take a bit more space, but we approximate
         rows_per_col = max(1, available_height // row_height)
 
-        chunks = [sorted_entries[i:i + rows_per_col] for i in range(0, len(sorted_entries), rows_per_col)]
+        chunks = [display_entries[i:i + rows_per_col] for i in range(0, len(display_entries), rows_per_col)]
 
         # --- Build FIRST set to measure it ---
         for ci, chunk in enumerate(chunks):
@@ -396,7 +421,20 @@ class SecondWindow(QWidget):
         col_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         for i, entry in enumerate(entries_chunk):
-            rank = start_rank + i
+            if "is_header" in entry:
+                # It's a class header
+                header_widget = QWidget()
+                h_layout = QHBoxLayout(header_widget)
+                h_layout.setContentsMargins(5, 10, 5, 2)
+
+                lbl_header = QLabel(entry["name"])
+                lbl_header.setStyleSheet("color: #ff9800; font-size: 20px; font-weight: bold; text-decoration: underline;")
+                lbl_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                h_layout.addWidget(lbl_header)
+                col_layout.addWidget(header_widget)
+                continue
+
+            rank = entry.get("display_rank", start_rank + i)
 
             entry_widget = QWidget()
             h_layout = QHBoxLayout(entry_widget)
@@ -409,20 +447,24 @@ class SecondWindow(QWidget):
             lbl_name = QLabel(entry["name"])
             lbl_name.setStyleSheet("font-size: 16px; font-weight: bold;")
 
-            diff = abs(entry["teiler"] - self.current_target_teiler)
-            teiler_color = "#ffffff"
-            if diff == 0:
-                teiler_color = "#00ff00"
-            elif diff <= 1.0:
-                teiler_color = "#aaffaa"
+            score_key = "teiler" if getattr(self, "current_mode", "teiler") == "teiler" else "ringzahl"
+            score_val = entry.get(score_key, 0.0)
 
-            lbl_teiler = QLabel(f"{entry['teiler']:.1f}".replace('.', ','))
-            lbl_teiler.setAlignment(Qt.AlignmentFlag.AlignRight)
-            lbl_teiler.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {teiler_color};")
+            score_color = "#ffffff"
+            if score_key == "teiler":
+                diff = abs(score_val - self.current_target_teiler)
+                if diff == 0:
+                    score_color = "#00ff00"
+                elif diff <= 1.0:
+                    score_color = "#aaffaa"
+
+            lbl_score = QLabel(f"{score_val:.1f}".replace('.', ','))
+            lbl_score.setAlignment(Qt.AlignmentFlag.AlignRight)
+            lbl_score.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {score_color};")
 
             h_layout.addWidget(lbl_rank)
             h_layout.addWidget(lbl_name)
-            h_layout.addWidget(lbl_teiler)
+            h_layout.addWidget(lbl_score)
 
             col_layout.addWidget(entry_widget)
 

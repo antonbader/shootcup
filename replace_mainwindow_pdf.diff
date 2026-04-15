@@ -1,0 +1,20 @@
+<<<<<<< SEARCH
+            success = export_to_pdf(
+                filepath,
+                self.tournament.name,
+                self.tournament.date_str,
+                entries,
+                self.tournament.target_teiler,
+                info_text=info_text
+            )
+=======
+            success = export_to_pdf(
+                filepath,
+                self.tournament.name,
+                self.tournament.date_str,
+                entries,
+                self.tournament.target_teiler,
+                info_text=info_text,
+                mode=self.tournament.mode
+            )
+>>>>>>> REPLACE
