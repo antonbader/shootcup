@@ -411,10 +411,11 @@ class MainWindow(QMainWindow):
         self.update_second_window()
 
 
-    def handle_rest_data(self, name, score, score_type, klasse):
+    def handle_rest_data(self, name, scores, score_type, klasse):
         original_mode = self.tournament.mode
         self.tournament.set_mode(score_type)
-        self.tournament.add_entry(None, name, score, klasse)
+        for score in scores:
+            self.tournament.add_entry(None, name, score, klasse)
         self.tournament.set_mode(original_mode)
 
         if score_type == original_mode:
