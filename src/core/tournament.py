@@ -64,7 +64,7 @@ class Tournament:
                 return True
         return False
 
-    def get_entries_sorted(self, sort_key='insertion_order'):
+    def get_entries_sorted(self, sort_key='insertion_order', sort_by_class=True):
         """
         Returns a sorted list of entries based on the key.
         sort_key can be: 'insertion_order', 'name', 'teiler', 'diff' or 'ringzahl'.
@@ -86,11 +86,12 @@ class Tournament:
             sorted_list = target_list.copy()
 
         # Check if we need class sorting
-        has_classes = any(e.get('klasse') for e in target_list)
-        if has_classes:
-            # Sort by class primary, then maintain the current sorted order
-            # "nicht zugeordnet" goes to the end
-            sorted_list.sort(key=lambda x: (x.get('klasse') is None, x.get('klasse', '').lower() if x.get('klasse') else ''))
+        if sort_by_class:
+            has_classes = any(e.get('klasse') for e in target_list)
+            if has_classes:
+                # Sort by class primary, then maintain the current sorted order
+                # "nicht zugeordnet" goes to the end
+                sorted_list.sort(key=lambda x: (x.get('klasse') is None, x.get('klasse', '').lower() if x.get('klasse') else ''))
 
         return sorted_list
 

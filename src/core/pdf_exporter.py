@@ -4,7 +4,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 
-def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler, info_text=None, mode="teiler"):
+def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler, info_text=None, mode="teiler", sort_by_class=True):
     """
     Exports the given entries to a PDF file.
     entries: List of dicts, expected to be already sorted.
@@ -35,7 +35,7 @@ def export_to_pdf(filename, tournament_name, date_str, entries, target_teiler, i
     elements.append(Spacer(1, 1*cm))
 
     # Process classes if any
-    has_classes = any(e.get('klasse') for e in entries)
+    has_classes = sort_by_class and any(e.get('klasse') for e in entries)
 
     if has_classes:
         current_class = object() # Dummy object

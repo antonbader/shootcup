@@ -18,7 +18,7 @@ from src.core.config import load_config
 from src.core.rest_server import RestServerThread
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False, lane_duration_min=5.0):
+    def __init__(self, parent=None, current_index=0, current_speed=2, num_lanes=8, show_lanes=False, show_target_teiler=False, lane_duration_min=5.0, sort_by_class=True):
         super().__init__(parent)
         self.setWindowTitle("Einstellungen")
         self.resize(350, 350)
@@ -70,6 +70,10 @@ class SettingsDialog(QDialog):
         self.show_target_teiler_check.setChecked(show_target_teiler)
         layout.addWidget(self.show_target_teiler_check)
 
+        self.sort_by_class_check = QCheckBox("Nach Klassen gruppieren / sortieren")
+        self.sort_by_class_check.setChecked(sort_by_class)
+        layout.addWidget(self.sort_by_class_check)
+
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -93,6 +97,9 @@ class SettingsDialog(QDialog):
 
     def get_show_target_teiler(self):
         return self.show_target_teiler_check.isChecked()
+
+    def get_sort_by_class(self):
+        return self.sort_by_class_check.isChecked()
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -121,6 +128,8 @@ class MainWindow(QMainWindow):
         self.lane_display_duration_minutes = 5.0
         self.lane_assignments = {} # {lane_num: start_nr_str}
         self.lane_timestamps = {}  # {lane_num: timestamp}
+
+        self.sort_by_class = True
 
         # Filter State
         self.active_filter_names = None
@@ -533,7 +542,7 @@ class MainWindow(QMainWindow):
         }
         key = key_map.get(sort_mode, "insertion_order")
 
-        entries = self.tournament.get_entries_sorted(key)
+        entries = self.tournament.get_entries_sorted(key, sort_by_class=self.sort_by_class)
 
         if self.active_filter_names is not None:
             entries = [e for e in entries if e['name'] in self.active_filter_names]
@@ -603,7 +612,7 @@ class MainWindow(QMainWindow):
                 "Differenz zum Ziel": "diff"
             }
             key = key_map.get(sort_mode, "insertion_order")
-            entries = self.tournament.get_entries_sorted(key)
+            entries = self.tournament.get_entries_sorted(key, sort_by_class=self.sort_by_class)
 
             # Apply filter if active
             is_filtered = False
@@ -624,7 +633,8 @@ class MainWindow(QMainWindow):
                 entries,
                 self.tournament.target_teiler,
                 info_text=info_text,
-                mode=self.tournament.mode
+                mode=self.tournament.mode,
+                sort_by_class=self.sort_by_class
             )
 
             if success:
@@ -712,7 +722,8 @@ class MainWindow(QMainWindow):
             self.num_lanes,
             self.show_lanes_second_screen,
             self.show_target_teiler_second_screen,
-            self.lane_display_duration_minutes
+            self.lane_display_duration_minutes,
+            self.sort_by_class
         )
         if dlg.exec():
             self.selected_screen_index = dlg.get_selected_screen_index()
@@ -725,9 +736,15 @@ class MainWindow(QMainWindow):
             self.show_target_teiler_second_screen = dlg.get_show_target_teiler()
             self.lane_display_duration_minutes = dlg.get_lane_duration()
 
+            sort_by_class_changed = (self.sort_by_class != dlg.get_sort_by_class())
+            self.sort_by_class = dlg.get_sort_by_class()
+
             if lanes_changed:
                 self.setup_lane_inputs()
                 self.apply_lane_assignments(play_sound=False)
+
+            if sort_by_class_changed:
+                self.update_table()
 
             if self.second_window:
                 self.second_window.set_scroll_speed(self.scroll_speed)
@@ -770,8 +787,6 @@ class MainWindow(QMainWindow):
             if changed_lanes is None:
                 changed_lanes = []
 
-            entries_to_send = self.tournament.entries if self.tournament.mode == "teiler" else self.tournament.entries_ringzahl
-
             if self.sort_mirror_check.isChecked():
                 sort_mode = self.sort_combo.currentText()
                 key_map = {
@@ -782,11 +797,14 @@ class MainWindow(QMainWindow):
                     "Differenz zum Ziel": "diff"
                 }
                 key = key_map.get(sort_mode, "insertion_order")
-                entries = self.tournament.get_entries_sorted(key)
+                entries = self.tournament.get_entries_sorted(key, sort_by_class=self.sort_by_class)
 
                 if self.active_filter_names is not None:
                     entries = [e for e in entries if e['name'] in self.active_filter_names]
                 entries_to_send = entries
+            else:
+                entries_to_send = self.tournament.get_entries_sorted('insertion_order', sort_by_class=self.sort_by_class)
+
 
             self.second_window.update_data(
                 self.tournament.name,
@@ -799,5 +817,6 @@ class MainWindow(QMainWindow):
                 show_target_teiler=self.show_target_teiler_second_screen and self.tournament.mode == "teiler",
                 lane_timestamps=self.lane_timestamps,
                 lane_display_duration_seconds=self.lane_display_duration_minutes * 60,
-                mode=self.tournament.mode
+                mode=self.tournament.mode,
+                show_classes=self.sort_by_class
             )

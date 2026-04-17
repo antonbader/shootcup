@@ -196,7 +196,7 @@ class SecondWindow(QWidget):
     # =========================================================
     # UPDATE DATA
     # =========================================================
-    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None, lane_display_duration_seconds=300, mode="teiler"):
+    def update_data(self, name, date_str, target_teiler, entries, lane_assignments=None, show_lanes=False, changed_lanes=None, show_target_teiler=False, lane_timestamps=None, lane_display_duration_seconds=300, mode="teiler", show_classes=True):
         self.name_label.setText(name)
         self.date_label.setText(date_str)
         self.target_teiler_label.setText(f"{target_teiler:.1f}".replace('.', ','))
@@ -210,6 +210,7 @@ class SecondWindow(QWidget):
         self.changed_lanes = changed_lanes if changed_lanes else []
         self.display_duration_seconds = lane_display_duration_seconds
         self.current_mode = mode
+        self.show_classes = show_classes
 
         self.rebuild_lanes_display()
         QTimer.singleShot(50, self.rebuild_content)  # wait for layout size
@@ -312,7 +313,7 @@ class SecondWindow(QWidget):
 
         # Transform entries for display: Insert class headers and calculate ranks
         display_entries = []
-        has_classes = any(e.get('klasse') for e in self.current_entries)
+        has_classes = getattr(self, 'show_classes', True) and any(e.get('klasse') for e in self.current_entries)
 
         current_class = object() # dummy object for first iteration
         rank = 1
